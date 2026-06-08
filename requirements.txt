@@ -2,3 +2,8 @@ fastapi
 uvicorn
 httpx
 jinja2
+sqlalchemy
+scikit-learn
+numpy
+groq
+python-dotenv

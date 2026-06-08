@@ -11,6 +11,7 @@
     <header class="text-center mb-10">
       <h1 class="text-4xl font-bold text-emerald-400">PaceClimate</h1>
       <p class="text-gray-400 mt-1">7-day running forecast for <span id="city-display">{{ default_city }}</span></p>
+      <div id="stats-bar" class="mt-2 text-sm text-gray-500"></div>
     </header>
 
     <div class="flex flex-wrap gap-3 mb-8 justify-center">
@@ -19,23 +20,196 @@
       <button class="time-btn px-5 py-2 rounded-full text-sm font-medium transition bg-emerald-600 text-white" data-pref="evening">Evening</button>
     </div>
 
+    <div class="flex gap-2 mb-6 justify-center">
+      <button id="log-run-toggle" class="px-4 py-2 rounded-lg text-sm bg-emerald-700 hover:bg-emerald-600 transition">+ Log a Run</button>
+      <button id="history-toggle" class="px-4 py-2 rounded-lg text-sm bg-gray-800 hover:bg-gray-700 transition">History</button>
+    </div>
+
+    <div id="log-run-form" class="hidden mb-6 bg-gray-900 rounded-xl border border-gray-700 p-5">
+      <h3 class="text-lg font-semibold mb-3">Log Your Run</h3>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-400">Date</label>
+          <input type="date" id="run-date" class="w-full bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400">Distance (km)</label>
+          <input type="number" step="0.1" id="run-distance" class="w-full bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700" placeholder="5.0">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400">Duration (min)</label>
+          <input type="number" id="run-duration" class="w-full bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700" placeholder="30">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400">Rating</label>
+          <select id="run-rating" class="w-full bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700">
+            <option value="5">😊 Great</option>
+            <option value="4">🙂 Good</option>
+            <option value="3">😐 Okay</option>
+            <option value="2">😕 Tough</option>
+            <option value="1">😞 Terrible</option>
+          </select>
+        </div>
+        <div class="col-span-2">
+          <label class="text-xs text-gray-400">Notes (optional)</label>
+          <input type="text" id="run-notes" class="w-full bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700" placeholder="Felt amazing, great pace...">
+        </div>
+      </div>
+      <button id="submit-run" class="mt-3 px-5 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-medium transition">Save Run</button>
+      <p id="log-result" class="mt-2 text-sm text-gray-400 hidden"></p>
+    </div>
+
+    <div id="history-section" class="hidden mb-6 bg-gray-900 rounded-xl border border-gray-700 p-5">
+      <h3 class="text-lg font-semibold mb-3">Run History</h3>
+      <div id="history-list" class="text-sm text-gray-400">No runs logged yet.</div>
+    </div>
+
     <div id="loading" class="text-center text-gray-400 py-20">
       <div class="animate-spin h-8 w-8 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto mb-3"></div>
       Detecting your location and fetching forecast...
     </div>
 
     <div id="days-container" class="space-y-4 hidden"></div>
+
+    <div class="mt-8 bg-gray-900 rounded-xl border border-gray-700 p-5">
+      <h3 class="text-lg font-semibold mb-3">Ask about the forecast</h3>
+      <div id="chat-messages" class="mb-3 space-y-2 max-h-64 overflow-y-auto hidden"></div>
+      <div class="flex gap-2">
+        <input type="text" id="chat-input" class="flex-1 bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700" placeholder='e.g. "Is Thursday good for running?"'>
+        <button id="chat-send" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-sm transition">Ask</button>
+      </div>
+    </div>
   </div>
 
   <script>
     const DEFAULT_LAT = {{ default_lat }};
     const DEFAULT_LON = {{ default_lon }};
     const DEFAULT_CITY = "{{ default_city }}";
+    const RUN_COUNT = {{ run_count }};
+    const MIN_RUNS = {{ min_runs }};
 
     let currentLat = DEFAULT_LAT;
     let currentLon = DEFAULT_LON;
     let currentPref = localStorage.getItem("paceclimate_time_pref") || "evening";
-    let cityName = DEFAULT_CITY;
+
+    document.getElementById("run-date").value = new Date().toISOString().split("T")[0];
+
+    function updateStats(runCount) {
+      const bar = document.getElementById("stats-bar");
+      if (runCount < MIN_RUNS) {
+        bar.textContent = `Log ${MIN_RUNS - runCount} more runs to unlock personalized AI scoring (${runCount}/${MIN_RUNS})`;
+        bar.className = "mt-2 text-sm text-yellow-500";
+      } else {
+        bar.textContent = `AI is learning from your ${runCount} logged runs`;
+        bar.className = "mt-2 text-sm text-emerald-400";
+      }
+    }
+    updateStats(RUN_COUNT);
+
+    document.getElementById("log-run-toggle").addEventListener("click", () => {
+      const form = document.getElementById("log-run-form");
+      form.classList.toggle("hidden");
+    });
+
+    document.getElementById("history-toggle").addEventListener("click", () => {
+      const section = document.getElementById("history-section");
+      section.classList.toggle("hidden");
+      if (!section.classList.contains("hidden")) loadHistory();
+    });
+
+    document.getElementById("submit-run").addEventListener("click", async () => {
+      const date = document.getElementById("run-date").value;
+      const distance = document.getElementById("run-distance").value;
+      const duration = document.getElementById("run-duration").value;
+      const rating = document.getElementById("run-rating").value;
+      const notes = document.getElementById("run-notes").value;
+      const result = document.getElementById("log-result");
+
+      if (!distance || !duration) {
+        result.textContent = "Please enter distance and duration.";
+        result.className = "mt-2 text-sm text-red-400";
+        result.classList.remove("hidden");
+        return;
+      }
+
+      try {
+        const url = `/api/runs?date=${date}&distance_km=${distance}&duration_min=${duration}&rating=${rating}${notes ? "&notes=" + encodeURIComponent(notes) : ""}`;
+        const resp = await fetch(url, { method: "POST" });
+        const data = await resp.json();
+        result.textContent = `Run saved! (Total: ${data.run_count} runs)${data.model_trained ? " AI model retrained!" : ""}`;
+        result.className = "mt-2 text-sm text-emerald-400";
+        result.classList.remove("hidden");
+        updateStats(data.run_count);
+        document.getElementById("run-distance").value = "";
+        document.getElementById("run-duration").value = "";
+        document.getElementById("run-notes").value = "";
+        fetchForecast();
+      } catch (err) {
+        result.textContent = "Failed to save run.";
+        result.className = "mt-2 text-sm text-red-400";
+        result.classList.remove("hidden");
+      }
+    });
+
+    async function loadHistory() {
+      const list = document.getElementById("history-list");
+      try {
+        const resp = await fetch("/api/runs");
+        const data = await resp.json();
+        if (data.runs.length === 0) {
+          list.innerHTML = "No runs logged yet.";
+          return;
+        }
+        list.innerHTML = data.runs.map(r => `
+          <div class="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
+            <span>${r.date}</span>
+            <span>${r.distance_km} km</span>
+            <span>${r.duration_min} min</span>
+            <span>${"😊🙂😐😕😞"[5 - r.rating] || "❓"}</span>
+            ${r.notes ? `<span class="text-gray-500 text-xs">${r.notes}</span>` : ""}
+          </div>
+        `).join("");
+      } catch (err) {
+        list.innerHTML = "Failed to load history.";
+      }
+    }
+
+    function addChatMessage(text, isUser = false) {
+      const container = document.getElementById("chat-messages");
+      container.classList.remove("hidden");
+      const div = document.createElement("div");
+      div.className = `flex ${isUser ? "justify-end" : "justify-start"}`;
+      div.innerHTML = `<div class="rounded-lg px-3 py-2 text-sm max-w-[80%] ${isUser ? "bg-emerald-800 text-emerald-100" : "bg-gray-800 text-gray-200"}">${text}</div>`;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    document.getElementById("chat-send").addEventListener("click", async () => {
+      const input = document.getElementById("chat-input");
+      const q = input.value.trim();
+      if (!q) return;
+      input.value = "";
+      addChatMessage(q, true);
+
+      const thinking = document.createElement("div");
+      thinking.className = "flex justify-start";
+      thinking.id = "chat-thinking";
+      thinking.innerHTML = `<div class="rounded-lg px-3 py-2 text-sm bg-gray-800 text-gray-400 italic">Thinking...</div>`;
+      document.getElementById("chat-messages").appendChild(thinking);
+
+      try {
+        const resp = await fetch(`/api/chat?q=${encodeURIComponent(q)}&lat=${currentLat}&lon=${currentLon}`);
+        const data = await resp.json();
+        document.getElementById("chat-thinking").remove();
+        addChatMessage(data.answer);
+      } catch (err) {
+        document.getElementById("chat-thinking").remove();
+        addChatMessage("Sorry, I couldn't answer that.");
+      }
+    });
+    document.getElementById("chat-input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") document.getElementById("chat-send").click();
+    });
 
     function setActivePref(pref) {
       document.querySelectorAll(".time-btn").forEach(btn => {
@@ -79,7 +253,7 @@
 
     function scoreBadge(label) {
       const colors = { Great: "bg-emerald-600", Good: "bg-yellow-600", Okay: "bg-orange-600", Skip: "bg-red-600" };
-      return `<span class="text-xs font-bold px-2 py-0.5 rounded ${colors[label] || 'bg-gray-600'}">${label}</span>`;
+      return `<span class="text-xs font-bold px-2 py-0.5 rounded ${colors[label] || "bg-gray-600"}">${label}</span>`;
     }
 
     function formatDate(dateStr) {
@@ -147,6 +321,7 @@
         renderDays(data.days);
         loading.classList.add("hidden");
         container.classList.remove("hidden");
+        if (data.run_count !== undefined) updateStats(data.run_count);
       } catch (err) {
         loading.innerHTML = `<p class="text-red-400">Failed to load forecast. <button onclick="fetchForecast()" class="underline">Retry</button></p>`;
       }
@@ -164,9 +339,7 @@
           document.getElementById("city-display").textContent = `${currentLat.toFixed(2)}°N, ${currentLon.toFixed(2)}°E`;
           fetchForecast();
         },
-        () => {
-          fetchForecast();
-        },
+        () => { fetchForecast(); },
         { enableHighAccuracy: true, timeout: 5000 }
       );
     }

@@ -1,10 +1,21 @@
-from fastapi import FastAPI, Request
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from fastapi import FastAPI, Request, Depends, Query
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 
 from .weather import fetch_forecast
 from .scoring import score_day, TIME_PREFS
+from .database import get_db, init_db, CURRENT_USER_ID
+from .models import User
+from .history import log_run, get_history, get_run_count
+from .trainer import train_model, predict_score
+from .chat import answer_question
 
 app = FastAPI(title="PaceClimate")
 
@@ -22,8 +33,20 @@ DEFAULT_LON = 8.784
 DEFAULT_CITY = "Gafsa, Tunisia"
 
 
+@app.on_event("startup")
+def startup():
+    init_db()
+    db = next(get_db())
+    user = db.query(User).filter_by(id=CURRENT_USER_ID).first()
+    if not user:
+        db.add(User(id=CURRENT_USER_ID, username="default"))
+        db.commit()
+    db.close()
+
+
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+async def index(request: Request, db: Session = Depends(get_db)):
+    run_count = get_run_count(db)
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -32,23 +55,99 @@ async def index(request: Request):
             "default_lon": DEFAULT_LON,
             "default_city": DEFAULT_CITY,
             "time_prefs": TIME_PREFS,
+            "run_count": run_count,
+            "min_runs": 20,
         },
     )
 
 
 @app.get("/api/forecast")
-async def api_forecast(lat: float = DEFAULT_LAT, lon: float = DEFAULT_LON, time_pref: str = "evening"):
+async def api_forecast(
+    lat: float = DEFAULT_LAT,
+    lon: float = DEFAULT_LON,
+    time_pref: str = "evening",
+    db: Session = Depends(get_db),
+):
     raw_days = await fetch_forecast(lat, lon)
     scored = []
     for day in raw_days:
         result = score_day(day, time_pref)
+        ml_score = predict_score(db, day)
+        if ml_score is not None:
+            result["score"] = round((result["score"] * 0.3 + ml_score * 0.7))
+            if result["score"] >= 80:
+                result["label"] = "Great"
+            elif result["score"] >= 60:
+                result["label"] = "Good"
+            elif result["score"] >= 40:
+                result["label"] = "Okay"
+            else:
+                result["label"] = "Skip"
         scored.append({**day, **result})
     scored.sort(key=lambda d: d["score"], reverse=True)
 
     time_pref_label = TIME_PREFS.get(time_pref, TIME_PREFS["evening"])["label"]
+    run_count = get_run_count(db)
 
     return {
         "location": {"lat": lat, "lon": lon},
         "time_pref": time_pref_label,
         "days": scored,
+        "run_count": run_count,
     }
+
+
+@app.post("/api/runs")
+async def api_log_run(
+    date: str = Query(...),
+    distance_km: float = Query(...),
+    duration_min: int = Query(...),
+    rating: int = Query(...),
+    notes: str = Query(None),
+    db: Session = Depends(get_db),
+):
+    log = log_run(db, date, distance_km, duration_min, rating, notes)
+    count = get_run_count(db)
+    trained = False
+    if count >= 20 and count % 5 == 0:
+        train_model(db)
+        trained = True
+    return {"id": log.id, "run_count": count, "model_trained": trained}
+
+
+@app.get("/api/runs")
+async def api_get_runs(db: Session = Depends(get_db)):
+    runs = get_history(db)
+    return {
+        "runs": [
+            {
+                "id": r.id,
+                "date": r.date,
+                "distance_km": r.distance_km,
+                "duration_min": r.duration_min,
+                "rating": r.rating,
+                "notes": r.notes,
+                "created_at": str(r.created_at),
+            }
+            for r in runs
+        ],
+        "count": len(runs),
+    }
+
+
+@app.get("/api/stats")
+async def api_stats(db: Session = Depends(get_db)):
+    count = get_run_count(db)
+    return {"run_count": count, "min_runs": 20, "ready_for_ml": count >= 20}
+
+
+@app.get("/api/chat")
+async def api_chat(q: str = Query(...), lat: float = DEFAULT_LAT, lon: float = DEFAULT_LON, db: Session = Depends(get_db)):
+    raw_days = await fetch_forecast(lat, lon)
+    scored = []
+    for day in raw_days:
+        result = score_day(day)
+        scored.append({**day, **result})
+    run_count = get_run_count(db)
+    answer = answer_question(q, scored, run_count)
+    return {"answer": answer}
