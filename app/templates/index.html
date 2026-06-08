@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PaceClimate — Running Forecast</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen font-sans">
+  <div class="max-w-4xl mx-auto px-4 py-8">
+    <header class="text-center mb-10">
+      <h1 class="text-4xl font-bold text-emerald-400">PaceClimate</h1>
+      <p class="text-gray-400 mt-1">7-day running forecast for <span id="city-display">{{ default_city }}</span></p>
+    </header>
+
+    <div class="flex flex-wrap gap-3 mb-8 justify-center">
+      <button class="time-btn px-5 py-2 rounded-full text-sm font-medium transition" data-pref="morning">Morning</button>
+      <button class="time-btn px-5 py-2 rounded-full text-sm font-medium transition" data-pref="afternoon">Afternoon</button>
+      <button class="time-btn px-5 py-2 rounded-full text-sm font-medium transition bg-emerald-600 text-white" data-pref="evening">Evening</button>
+    </div>
+
+    <div id="loading" class="text-center text-gray-400 py-20">
+      <div class="animate-spin h-8 w-8 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+      Detecting your location and fetching forecast...
+    </div>
+
+    <div id="days-container" class="space-y-4 hidden"></div>
+  </div>
+
+  <script>
+    const DEFAULT_LAT = {{ default_lat }};
+    const DEFAULT_LON = {{ default_lon }};
+    const DEFAULT_CITY = "{{ default_city }}";
+
+    let currentLat = DEFAULT_LAT;
+    let currentLon = DEFAULT_LON;
+    let currentPref = localStorage.getItem("paceclimate_time_pref") || "evening";
+    let cityName = DEFAULT_CITY;
+
+    function setActivePref(pref) {
+      document.querySelectorAll(".time-btn").forEach(btn => {
+        btn.classList.remove("bg-emerald-600", "text-white");
+        btn.classList.add("bg-gray-800", "text-gray-300");
+      });
+      const active = document.querySelector(`.time-btn[data-pref="${pref}"]`);
+      if (active) {
+        active.classList.remove("bg-gray-800", "text-gray-300");
+        active.classList.add("bg-emerald-600", "text-white");
+      }
+      currentPref = pref;
+      localStorage.setItem("paceclimate_time_pref", pref);
+      fetchForecast();
+    }
+
+    document.querySelectorAll(".time-btn").forEach(btn => {
+      btn.addEventListener("click", () => setActivePref(btn.dataset.pref));
+    });
+    setActivePref(currentPref);
+
+    function weatherIcon(code) {
+      if (code === 0) return "☀️";
+      if (code <= 2) return "⛅";
+      if (code === 3) return "☁️";
+      if (code === 45 || code === 48) return "🌫️";
+      if (code >= 51 && code <= 57) return "🌦️";
+      if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return "🌧️";
+      if (code >= 71 && code <= 77) return "❄️";
+      if (code >= 85 && code <= 86) return "🌨️";
+      if (code >= 95) return "⛈️";
+      return "🌤️";
+    }
+
+    function scoreColor(score) {
+      if (score >= 80) return "bg-emerald-900/40 border-emerald-600";
+      if (score >= 60) return "bg-yellow-900/30 border-yellow-600";
+      if (score >= 40) return "bg-orange-900/30 border-orange-600";
+      return "bg-red-900/30 border-red-600";
+    }
+
+    function scoreBadge(label) {
+      const colors = { Great: "bg-emerald-600", Good: "bg-yellow-600", Okay: "bg-orange-600", Skip: "bg-red-600" };
+      return `<span class="text-xs font-bold px-2 py-0.5 rounded ${colors[label] || 'bg-gray-600'}">${label}</span>`;
+    }
+
+    function formatDate(dateStr) {
+      const d = new Date(dateStr + "T12:00:00");
+      return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    }
+
+    function renderDays(days) {
+      const container = document.getElementById("days-container");
+      container.innerHTML = "";
+      days.forEach((day, idx) => {
+        const card = document.createElement("div");
+        card.className = `rounded-xl border p-5 transition hover:scale-[1.01] ${scoreColor(day.score)}`;
+        const rank = idx + 1;
+        card.innerHTML = `
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-lg font-bold">#${rank}</span>
+                <span class="font-semibold text-lg">${formatDate(day.date)}</span>
+                ${scoreBadge(day.label)}
+              </div>
+              <div class="mt-2 text-3xl">${weatherIcon(day.weather_code)} ${day.weather_desc}</div>
+            </div>
+            <div class="text-right">
+              <div class="text-3xl font-bold">${day.score}</div>
+              <div class="text-sm text-gray-400">/100</div>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-4 mt-4 text-sm text-gray-300">
+            <span>🌡️ ${day.temp_used}°C</span>
+            <span>💧 ${day.precip_prob}% rain</span>
+            <span>💨 ${day.wind_max} km/h</span>
+          </div>
+          <button class="explain-btn mt-3 text-xs text-emerald-400 hover:text-emerald-300 transition" data-idx="${idx}">
+            Why this score? ▼
+          </button>
+          <div id="explain-${idx}" class="hidden mt-2 text-sm text-gray-400 bg-gray-900/50 rounded p-3">
+            ${day.explanation}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+
+      document.querySelectorAll(".explain-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = btn.dataset.idx;
+          const box = document.getElementById(`explain-${idx}`);
+          const isHidden = box.classList.contains("hidden");
+          box.classList.toggle("hidden");
+          btn.textContent = isHidden ? "Why this score? ▲" : "Why this score? ▼";
+        });
+      });
+    }
+
+    async function fetchForecast() {
+      const container = document.getElementById("days-container");
+      const loading = document.getElementById("loading");
+      loading.classList.remove("hidden");
+      container.classList.add("hidden");
+
+      try {
+        const resp = await fetch(`/api/forecast?lat=${currentLat}&lon=${currentLon}&time_pref=${currentPref}`);
+        const data = await resp.json();
+        renderDays(data.days);
+        loading.classList.add("hidden");
+        container.classList.remove("hidden");
+      } catch (err) {
+        loading.innerHTML = `<p class="text-red-400">Failed to load forecast. <button onclick="fetchForecast()" class="underline">Retry</button></p>`;
+      }
+    }
+
+    function autoLocate() {
+      if (!navigator.geolocation) {
+        fetchForecast();
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          currentLat = pos.coords.latitude;
+          currentLon = pos.coords.longitude;
+          document.getElementById("city-display").textContent = `${currentLat.toFixed(2)}°N, ${currentLon.toFixed(2)}°E`;
+          fetchForecast();
+        },
+        () => {
+          fetchForecast();
+        },
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
+    }
+
+    autoLocate();
+  </script>
+</body>
+</html>
