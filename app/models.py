@@ -9,8 +9,9 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
-    password_hash = Column(String)
+    email = Column(String, unique=True, index=True)
+    username = Column(String)
+    password_hash = Column(String, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     preferences = relationship("UserPreference", uselist=False, back_populates="user")
@@ -39,6 +40,9 @@ class RunLog(Base):
     distance_km = Column(Float)
     duration_min = Column(Integer)
     rating = Column(Integer)
+    avg_hr = Column(Integer, nullable=True)
+    max_hr = Column(Integer, nullable=True)
+    elevation_gain = Column(Float, nullable=True)
     weather_snapshot = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

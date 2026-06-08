@@ -52,6 +52,37 @@ def weather_description(code):
     return WMO_CODES.get(code, "Unknown")
 
 
+ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
+
+async def fetch_historical_weather(lat, lon, date_str):
+    """Fetch weather for a specific past date (for run logging)."""
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "start_date": date_str,
+        "end_date": date_str,
+        "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code,wind_speed_10m_max",
+        "timezone": "auto",
+    }
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(ARCHIVE_URL, params=params, timeout=10)
+        if resp.status_code != 200:
+            return {}
+        data = resp.json()
+
+    daily = data.get("daily", {})
+    if not daily.get("time"):
+        return {}
+
+    return {
+        "temp_max": daily["temperature_2m_max"][0],
+        "temp_min": daily["temperature_2m_min"][0],
+        "precip_sum": daily["precipitation_sum"][0],
+        "precip_prob": daily.get("precipitation_probability_max", [0])[0] or 0,
+        "wind_max": daily["wind_speed_10m_max"][0],
+        "weather_code": daily["weather_code"][0],
+    }
+
 async def fetch_forecast(lat, lon, forecast_days=7):
     params = {
         "latitude": lat,

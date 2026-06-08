@@ -5,78 +5,162 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PaceClimate — Running Forecast</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://accounts.google.com/gsi/client"></script>
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen font-sans">
   <div class="max-w-4xl mx-auto px-4 py-8">
-    <header class="text-center mb-10">
-      <h1 class="text-4xl font-bold text-emerald-400">PaceClimate</h1>
-      <p class="text-gray-400 mt-1">7-day running forecast for <span id="city-display">{{ default_city }}</span></p>
-      <div id="stats-bar" class="mt-2 text-sm text-gray-500"></div>
-    </header>
 
-    <div class="flex flex-wrap gap-3 mb-8 justify-center">
-      <button class="time-btn px-5 py-2 rounded-full text-sm font-medium transition" data-pref="morning">Morning</button>
-      <button class="time-btn px-5 py-2 rounded-full text-sm font-medium transition" data-pref="afternoon">Afternoon</button>
-      <button class="time-btn px-5 py-2 rounded-full text-sm font-medium transition bg-emerald-600 text-white" data-pref="evening">Evening</button>
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="flex flex-col items-center justify-center min-h-[60vh]">
+      <h1 class="text-5xl font-bold text-emerald-400 mb-2">PaceClimate</h1>
+      <p class="text-gray-400 mb-8">Sign in to get your running forecast</p>
+      <div class="bg-gray-900 rounded-xl border border-gray-700 p-6 w-full max-w-sm">
+        <div id="g_id_onload"
+             data-client_id="{{ google_client_id }}"
+             data-context="signin"
+             data-ux_mode="popup"
+             data-callback="onGoogleSignIn"
+             data-auto_prompt="false">
+        </div>
+
+        <p class="text-sm text-gray-400 mb-3 text-center">Continue with Google</p>
+        <div class="g_id_signin flex justify-center mb-5"
+             data-type="standard"
+             data-shape="pill"
+             data-theme="outline"
+             data-size="large"
+             data-text="signin_with"
+             data-logo_alignment="left">
+        </div>
+
+        <div class="relative mb-5">
+          <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-700"></div></div>
+          <div class="relative flex justify-center"><span class="bg-gray-900 px-3 text-xs text-gray-500">or with email</span></div>
+        </div>
+
+        <div class="flex mb-4 bg-gray-800 rounded-lg p-1">
+          <button id="tab-login" class="flex-1 py-2 text-sm font-medium rounded-md bg-emerald-600 text-white transition">Sign In</button>
+          <button id="tab-register" class="flex-1 py-2 text-sm font-medium rounded-md text-gray-400 hover:text-white transition">Create Account</button>
+        </div>
+
+        <input type="email" id="auth-email" class="w-full bg-gray-800 rounded-lg px-4 py-3 text-sm border border-gray-700 mb-3" placeholder="Email address">
+        <input type="password" id="auth-password" class="w-full bg-gray-800 rounded-lg px-4 py-3 text-sm border border-gray-700 mb-3" placeholder="Password">
+        <input type="password" id="auth-confirm" class="w-full bg-gray-800 rounded-lg px-4 py-3 text-sm border border-gray-700 mb-3 hidden" placeholder="Confirm password">
+        <button id="auth-btn" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-semibold transition">Sign In</button>
+        <p id="auth-error" class="mt-3 text-sm text-red-400 hidden"></p>
+      </div>
     </div>
 
-    <div class="flex gap-2 mb-6 justify-center">
-      <button id="log-run-toggle" class="px-4 py-2 rounded-lg text-sm bg-emerald-700 hover:bg-emerald-600 transition">+ Log a Run</button>
-      <button id="history-toggle" class="px-4 py-2 rounded-lg text-sm bg-gray-800 hover:bg-gray-700 transition">History</button>
-    </div>
+    <!-- DASHBOARD (hidden until login) -->
+    <div id="dashboard" class="hidden">
+      <header class="text-center mb-6">
+        <div class="flex items-center justify-between">
+          <h1 class="text-4xl font-bold text-emerald-400">PaceClimate</h1>
+          <div class="flex items-center gap-3">
+            <span id="user-email" class="text-xs text-gray-500"></span>
+            <button id="logout-btn" class="text-xs text-gray-400 hover:text-red-400 transition">Logout</button>
+          </div>
+        </div>
+        <p class="text-gray-400 mt-1">7-day running forecast for <span id="city-display">{{ default_city }}</span></p>
+        <div id="stats-bar" class="mt-2 text-sm text-gray-500"></div>
+      </header>
 
-    <div id="log-run-form" class="hidden mb-6 bg-gray-900 rounded-xl border border-gray-700 p-5">
-      <h3 class="text-lg font-semibold mb-3">Log Your Run</h3>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="text-xs text-gray-400">Date</label>
-          <input type="date" id="run-date" class="w-full bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700">
-        </div>
-        <div>
-          <label class="text-xs text-gray-400">Distance (km)</label>
-          <input type="number" step="0.1" id="run-distance" class="w-full bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700" placeholder="5.0">
-        </div>
-        <div>
-          <label class="text-xs text-gray-400">Duration (min)</label>
-          <input type="number" id="run-duration" class="w-full bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700" placeholder="30">
-        </div>
-        <div>
-          <label class="text-xs text-gray-400">Rating</label>
-          <select id="run-rating" class="w-full bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700">
-            <option value="5">😊 Great</option>
-            <option value="4">🙂 Good</option>
-            <option value="3">😐 Okay</option>
-            <option value="2">😕 Tough</option>
-            <option value="1">😞 Terrible</option>
-          </select>
-        </div>
-        <div class="col-span-2">
-          <label class="text-xs text-gray-400">Notes (optional)</label>
-          <input type="text" id="run-notes" class="w-full bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700" placeholder="Felt amazing, great pace...">
+      <div class="flex flex-wrap gap-3 mb-6 justify-center">
+        <button class="time-btn px-5 py-2 rounded-full text-sm font-medium transition" data-pref="morning">Morning</button>
+        <button class="time-btn px-5 py-2 rounded-full text-sm font-medium transition" data-pref="afternoon">Afternoon</button>
+        <button class="time-btn px-5 py-2 rounded-full text-sm font-medium transition bg-emerald-600 text-white" data-pref="evening">Evening</button>
+      </div>
+
+      <div class="flex gap-2 mb-6 justify-center">
+        <button id="log-run-toggle" class="px-4 py-2 rounded-lg text-sm bg-emerald-700 hover:bg-emerald-600 transition">+ Log a Run</button>
+        <button id="history-toggle" class="px-4 py-2 rounded-lg text-sm bg-gray-800 hover:bg-gray-700 transition">History</button>
+      </div>
+
+      <div id="effort-bar" class="mb-6 bg-gray-900 rounded-xl border border-gray-700 p-4 hidden">
+        <h3 class="text-sm font-semibold mb-2">Plan your effort</h3>
+        <div class="flex flex-wrap gap-3 items-end">
+          <div>
+            <label class="text-xs text-gray-400">Distance (km)</label>
+            <input type="number" id="plan-dist" step="0.1" class="w-24 bg-gray-800 rounded px-2 py-1.5 text-sm border border-gray-700">
+          </div>
+          <div>
+            <label class="text-xs text-gray-400">Duration (min)</label>
+            <input type="number" id="plan-dur" class="w-24 bg-gray-800 rounded px-2 py-1.5 text-sm border border-gray-700">
+          </div>
+          <div>
+            <label class="text-xs text-gray-400">Pace (min/km)</label>
+            <input type="number" id="plan-pace" step="0.1" class="w-24 bg-gray-800 rounded px-2 py-1.5 text-sm border border-gray-700" readonly>
+          </div>
+          <button id="plan-update" class="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded text-sm transition">Update Forecast</button>
+          <button id="plan-reset" class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm transition">My Average</button>
         </div>
       </div>
-      <button id="submit-run" class="mt-3 px-5 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-medium transition">Save Run</button>
-      <p id="log-result" class="mt-2 text-sm text-gray-400 hidden"></p>
-    </div>
 
-    <div id="history-section" class="hidden mb-6 bg-gray-900 rounded-xl border border-gray-700 p-5">
-      <h3 class="text-lg font-semibold mb-3">Run History</h3>
-      <div id="history-list" class="text-sm text-gray-400">No runs logged yet.</div>
-    </div>
+      <div id="log-run-form" class="hidden mb-6 bg-gray-900 rounded-xl border border-gray-700 p-5">
+        <h3 class="text-lg font-semibold mb-3">Log Your Run</h3>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-gray-400">Date</label>
+            <input type="date" id="run-date" class="w-full bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700">
+          </div>
+          <div>
+            <label class="text-xs text-gray-400">Distance (km)</label>
+            <input type="number" step="0.1" id="run-distance" class="w-full bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700" placeholder="5.0">
+          </div>
+          <div>
+            <label class="text-xs text-gray-400">Duration (min)</label>
+            <input type="number" id="run-duration" class="w-full bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700" placeholder="30">
+          </div>
+          <div>
+            <label class="text-xs text-gray-400">Rating</label>
+            <select id="run-rating" class="w-full bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700">
+              <option value="5">😊 Great</option>
+              <option value="4">🙂 Good</option>
+              <option value="3">😐 Okay</option>
+              <option value="2">😕 Tough</option>
+              <option value="1">😞 Terrible</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-gray-400">Avg HR (optional)</label>
+            <input type="number" id="run-avg-hr" class="w-full bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700" placeholder="145">
+          </div>
+          <div>
+            <label class="text-xs text-gray-400">Max HR (optional)</label>
+            <input type="number" id="run-max-hr" class="w-full bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700" placeholder="175">
+          </div>
+          <div>
+            <label class="text-xs text-gray-400">Elevation (m, optional)</label>
+            <input type="number" step="1" id="run-elevation" class="w-full bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700" placeholder="50">
+          </div>
+          <div class="col-span-2">
+            <label class="text-xs text-gray-400">Notes (optional)</label>
+            <input type="text" id="run-notes" class="w-full bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700" placeholder="Felt amazing, great pace...">
+          </div>
+        </div>
+        <button id="submit-run" class="mt-3 px-5 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-medium transition">Save Run</button>
+        <p id="log-result" class="mt-2 text-sm text-gray-400 hidden"></p>
+      </div>
 
-    <div id="loading" class="text-center text-gray-400 py-20">
-      <div class="animate-spin h-8 w-8 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto mb-3"></div>
-      Detecting your location and fetching forecast...
-    </div>
+      <div id="history-section" class="hidden mb-6 bg-gray-900 rounded-xl border border-gray-700 p-5">
+        <h3 class="text-lg font-semibold mb-3">Run History</h3>
+        <div id="history-list" class="text-sm text-gray-400">No runs logged yet.</div>
+      </div>
 
-    <div id="days-container" class="space-y-4 hidden"></div>
+      <div id="loading" class="text-center text-gray-400 py-20">
+        <div class="animate-spin h-8 w-8 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+        Detecting your location and fetching forecast...
+      </div>
 
-    <div class="mt-8 bg-gray-900 rounded-xl border border-gray-700 p-5">
-      <h3 class="text-lg font-semibold mb-3">Ask about the forecast</h3>
-      <div id="chat-messages" class="mb-3 space-y-2 max-h-64 overflow-y-auto hidden"></div>
-      <div class="flex gap-2">
-        <input type="text" id="chat-input" class="flex-1 bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700" placeholder='e.g. "Is Thursday good for running?"'>
-        <button id="chat-send" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-sm transition">Ask</button>
+      <div id="days-container" class="space-y-4 hidden"></div>
+
+      <div class="mt-8 bg-gray-900 rounded-xl border border-gray-700 p-5">
+        <h3 class="text-lg font-semibold mb-3">Ask about the forecast</h3>
+        <div id="chat-messages" class="mb-3 space-y-2 max-h-64 overflow-y-auto hidden"></div>
+        <div class="flex gap-2">
+          <input type="text" id="chat-input" class="flex-1 bg-gray-800 rounded px-3 py-2 text-sm border border-gray-700" placeholder='e.g. "Is Thursday good for running?"'>
+          <button id="chat-send" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-sm transition">Ask</button>
+        </div>
       </div>
     </div>
   </div>
@@ -85,15 +169,134 @@
     const DEFAULT_LAT = {{ default_lat }};
     const DEFAULT_LON = {{ default_lon }};
     const DEFAULT_CITY = "{{ default_city }}";
-    const RUN_COUNT = {{ run_count }};
-    const MIN_RUNS = {{ min_runs }};
+    const MIN_RUNS = 20;
 
     let currentLat = DEFAULT_LAT;
     let currentLon = DEFAULT_LON;
     let currentPref = localStorage.getItem("paceclimate_time_pref") || "evening";
 
-    document.getElementById("run-date").value = new Date().toISOString().split("T")[0];
+    function getToken() { return localStorage.getItem("paceclimate_token"); }
 
+    function apiFetch(url, options = {}) {
+      const token = getToken();
+      if (!token) { showLogin(); return Promise.reject("no token"); }
+      const headers = { ...options.headers, "Authorization": "Bearer " + token };
+      return fetch(url, { ...options, headers }).then(async resp => {
+        if (resp.status === 401) { showLogin(); throw new Error("unauthorized"); }
+        return resp.json();
+      });
+    }
+
+    function renderGoogleBtn() {
+      const btn = document.querySelector(".g_id_signin");
+      if (btn && window.google && google.accounts) {
+        try { google.accounts.id.renderButton(btn, { type: "standard", shape: "pill", theme: "outline", size: "large", text: "signin_with", logo_alignment: "left" }); } catch(e) {}
+      } else if (btn) {
+        setTimeout(renderGoogleBtn, 500);
+      }
+    }
+
+    function showLogin() {
+      localStorage.removeItem("paceclimate_token");
+      document.getElementById("dashboard").classList.add("hidden");
+      document.getElementById("login-screen").classList.remove("hidden");
+      setTimeout(renderGoogleBtn, 300);
+    }
+
+    function showDashboard(email) {
+      document.getElementById("login-screen").classList.add("hidden");
+      document.getElementById("dashboard").classList.remove("hidden");
+      document.getElementById("user-email").textContent = email || "";
+    }
+
+    // On page load
+    (function init() {
+      const token = getToken();
+      if (token) {
+        apiFetch("/api/me").then(u => {
+          showDashboard(u.email);
+          document.getElementById("run-date").value = new Date().toISOString().split("T")[0];
+          autoLocate();
+        }).catch(() => showLogin());
+        return;
+      }
+      showLogin();
+    })();
+
+    let isLoginMode = true;
+
+    function switchAuthTab(login) {
+      isLoginMode = login;
+      document.getElementById("tab-login").className = `flex-1 py-2 text-sm font-medium rounded-md ${login ? "bg-emerald-600 text-white" : "text-gray-400 hover:text-white"} transition`;
+      document.getElementById("tab-register").className = `flex-1 py-2 text-sm font-medium rounded-md ${login ? "text-gray-400 hover:text-white" : "bg-emerald-600 text-white"} transition`;
+      document.getElementById("auth-confirm").classList.toggle("hidden", login);
+      document.getElementById("auth-btn").textContent = login ? "Sign In" : "Create Account";
+      document.getElementById("auth-error").classList.add("hidden");
+    }
+
+    document.getElementById("tab-login").addEventListener("click", () => switchAuthTab(true));
+    document.getElementById("tab-register").addEventListener("click", () => switchAuthTab(false));
+
+    function onGoogleSignIn(response) {
+      fetch(`/api/auth/google?credential=${encodeURIComponent(response.credential)}`, { method: "POST" })
+        .then(r => r.json())
+        .then(data => {
+          localStorage.setItem("paceclimate_token", data.token);
+          showDashboard(data.email);
+          document.getElementById("run-date").value = new Date().toISOString().split("T")[0];
+          autoLocate();
+        })
+        .catch(() => {
+          document.getElementById("auth-error").textContent = "Google sign-in failed.";
+          document.getElementById("auth-error").classList.remove("hidden");
+        });
+    }
+
+    document.getElementById("auth-btn").addEventListener("click", async () => {
+      const email = document.getElementById("auth-email").value.trim();
+      const password = document.getElementById("auth-password").value;
+      const confirm = document.getElementById("auth-confirm").value;
+      const error = document.getElementById("auth-error");
+      error.classList.add("hidden");
+
+      if (!email || !password) { error.textContent = "Please fill in all fields."; error.classList.remove("hidden"); return; }
+      if (!isLoginMode && password !== confirm) { error.textContent = "Passwords do not match."; error.classList.remove("hidden"); return; }
+      if (password.length < 4) { error.textContent = "Password must be at least 4 characters."; error.classList.remove("hidden"); return; }
+
+      const btn = document.getElementById("auth-btn");
+      btn.disabled = true;
+      btn.textContent = "Please wait...";
+
+      const endpoint = isLoginMode ? "/api/auth/login" : "/api/auth/register";
+      try {
+        const resp = await fetch(`${endpoint}?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`, { method: "POST" });
+        const data = await resp.json();
+        if (!resp.ok) { throw new Error(data.detail || "Auth failed"); }
+        localStorage.setItem("paceclimate_token", data.token);
+        showDashboard(data.email);
+        document.getElementById("run-date").value = new Date().toISOString().split("T")[0];
+        autoLocate();
+      } catch (err) {
+        error.textContent = err.message;
+        error.classList.remove("hidden");
+      }
+      btn.disabled = false;
+      btn.textContent = isLoginMode ? "Sign In" : "Create Account";
+    });
+
+    document.getElementById("auth-password").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && isLoginMode) document.getElementById("auth-btn").click();
+    });
+    document.getElementById("auth-confirm").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !isLoginMode) document.getElementById("auth-btn").click();
+    });
+
+    // Logout
+    document.getElementById("logout-btn").addEventListener("click", () => {
+      showLogin();
+    });
+
+    // Stats
     function updateStats(runCount) {
       const bar = document.getElementById("stats-bar");
       if (runCount < MIN_RUNS) {
@@ -104,11 +307,9 @@
         bar.className = "mt-2 text-sm text-emerald-400";
       }
     }
-    updateStats(RUN_COUNT);
 
     document.getElementById("log-run-toggle").addEventListener("click", () => {
-      const form = document.getElementById("log-run-form");
-      form.classList.toggle("hidden");
+      document.getElementById("log-run-form").classList.toggle("hidden");
     });
 
     document.getElementById("history-toggle").addEventListener("click", () => {
@@ -122,6 +323,9 @@
       const distance = document.getElementById("run-distance").value;
       const duration = document.getElementById("run-duration").value;
       const rating = document.getElementById("run-rating").value;
+      const avgHr = document.getElementById("run-avg-hr").value;
+      const maxHr = document.getElementById("run-max-hr").value;
+      const elevation = document.getElementById("run-elevation").value;
       const notes = document.getElementById("run-notes").value;
       const result = document.getElementById("log-result");
 
@@ -133,16 +337,24 @@
       }
 
       try {
-        const url = `/api/runs?date=${date}&distance_km=${distance}&duration_min=${duration}&rating=${rating}${notes ? "&notes=" + encodeURIComponent(notes) : ""}`;
-        const resp = await fetch(url, { method: "POST" });
-        const data = await resp.json();
+        let url = `/api/runs?date=${date}&distance_km=${distance}&duration_min=${duration}&rating=${rating}&lat=${currentLat}&lon=${currentLon}`;
+        if (avgHr) url += `&avg_hr=${avgHr}`;
+        if (maxHr) url += `&max_hr=${maxHr}`;
+        if (elevation) url += `&elevation_gain=${elevation}`;
+        if (notes) url += `&notes=${encodeURIComponent(notes)}`;
+        const data = await apiFetch(url, { method: "POST" });
+        if (!data) return;
         result.textContent = `Run saved! (Total: ${data.run_count} runs)${data.model_trained ? " AI model retrained!" : ""}`;
         result.className = "mt-2 text-sm text-emerald-400";
         result.classList.remove("hidden");
         updateStats(data.run_count);
         document.getElementById("run-distance").value = "";
         document.getElementById("run-duration").value = "";
+        document.getElementById("run-avg-hr").value = "";
+        document.getElementById("run-max-hr").value = "";
+        document.getElementById("run-elevation").value = "";
         document.getElementById("run-notes").value = "";
+        loadAverages();
         fetchForecast();
       } catch (err) {
         result.textContent = "Failed to save run.";
@@ -154,24 +366,19 @@
     async function loadHistory() {
       const list = document.getElementById("history-list");
       try {
-        const resp = await fetch("/api/runs");
-        const data = await resp.json();
-        if (data.runs.length === 0) {
-          list.innerHTML = "No runs logged yet.";
-          return;
-        }
+        const data = await apiFetch("/api/runs");
+        if (!data || data.runs.length === 0) { list.innerHTML = "No runs logged yet."; return; }
         list.innerHTML = data.runs.map(r => `
           <div class="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
             <span>${r.date}</span>
             <span>${r.distance_km} km</span>
             <span>${r.duration_min} min</span>
             <span>${"😊🙂😐😕😞"[5 - r.rating] || "❓"}</span>
+            ${r.avg_hr ? `<span class="text-gray-500 text-xs">${r.avg_hr}bpm</span>` : ""}
             ${r.notes ? `<span class="text-gray-500 text-xs">${r.notes}</span>` : ""}
           </div>
         `).join("");
-      } catch (err) {
-        list.innerHTML = "Failed to load history.";
-      }
+      } catch (err) { list.innerHTML = "Failed to load history."; }
     }
 
     function addChatMessage(text, isUser = false) {
@@ -190,19 +397,16 @@
       if (!q) return;
       input.value = "";
       addChatMessage(q, true);
-
       const thinking = document.createElement("div");
       thinking.className = "flex justify-start";
       thinking.id = "chat-thinking";
       thinking.innerHTML = `<div class="rounded-lg px-3 py-2 text-sm bg-gray-800 text-gray-400 italic">Thinking...</div>`;
       document.getElementById("chat-messages").appendChild(thinking);
-
       try {
-        const resp = await fetch(`/api/chat?q=${encodeURIComponent(q)}&lat=${currentLat}&lon=${currentLon}`);
-        const data = await resp.json();
+        const data = await apiFetch(`/api/chat?q=${encodeURIComponent(q)}&lat=${currentLat}&lon=${currentLon}`);
         document.getElementById("chat-thinking").remove();
-        addChatMessage(data.answer);
-      } catch (err) {
+        addChatMessage(data?.answer || "No answer.");
+      } catch {
         document.getElementById("chat-thinking").remove();
         addChatMessage("Sorry, I couldn't answer that.");
       }
@@ -314,24 +518,57 @@
       const loading = document.getElementById("loading");
       loading.classList.remove("hidden");
       container.classList.add("hidden");
-
       try {
-        const resp = await fetch(`/api/forecast?lat=${currentLat}&lon=${currentLon}&time_pref=${currentPref}`);
-        const data = await resp.json();
+        let url = `/api/forecast?lat=${currentLat}&lon=${currentLon}&time_pref=${currentPref}`;
+        const planDist = document.getElementById("plan-dist").value;
+        const planDur = document.getElementById("plan-dur").value;
+        if (planDist) url += `&planned_distance=${planDist}`;
+        if (planDur) url += `&planned_duration=${planDur}`;
+        const data = await apiFetch(url);
+        if (!data) return;
         renderDays(data.days);
         loading.classList.add("hidden");
         container.classList.remove("hidden");
         if (data.run_count !== undefined) updateStats(data.run_count);
-      } catch (err) {
+        if (data.run_count >= MIN_RUNS) document.getElementById("effort-bar").classList.remove("hidden");
+      } catch {
         loading.innerHTML = `<p class="text-red-400">Failed to load forecast. <button onclick="fetchForecast()" class="underline">Retry</button></p>`;
       }
     }
 
+    async function loadAverages() {
+      try {
+        const data = await apiFetch("/api/averages");
+        if (!data) return;
+        document.getElementById("plan-dist").placeholder = `${data.distance_km} km`;
+        document.getElementById("plan-dur").placeholder = `${data.duration_min} min`;
+        document.getElementById("plan-pace").placeholder = `${data.pace} min/km`;
+      } catch {}
+    }
+
+    document.getElementById("plan-dist").addEventListener("input", () => {
+      const d = parseFloat(document.getElementById("plan-dist").value);
+      const dur = parseFloat(document.getElementById("plan-dur").value);
+      if (d > 0 && dur > 0) document.getElementById("plan-pace").value = (dur / d).toFixed(1);
+      else document.getElementById("plan-pace").value = "";
+    });
+    document.getElementById("plan-dur").addEventListener("input", () => {
+      const d = parseFloat(document.getElementById("plan-dist").value);
+      const dur = parseFloat(document.getElementById("plan-dur").value);
+      if (d > 0 && dur > 0) document.getElementById("plan-pace").value = (dur / d).toFixed(1);
+      else document.getElementById("plan-pace").value = "";
+    });
+    document.getElementById("plan-update").addEventListener("click", fetchForecast);
+    document.getElementById("plan-reset").addEventListener("click", () => {
+      document.getElementById("plan-dist").value = "";
+      document.getElementById("plan-dur").value = "";
+      document.getElementById("plan-pace").value = "";
+      fetchForecast();
+    });
+
     function autoLocate() {
-      if (!navigator.geolocation) {
-        fetchForecast();
-        return;
-      }
+      loadAverages();
+      if (!navigator.geolocation) { fetchForecast(); return; }
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           currentLat = pos.coords.latitude;
@@ -343,8 +580,6 @@
         { enableHighAccuracy: true, timeout: 5000 }
       );
     }
-
-    autoLocate();
   </script>
 </body>
 </html>
