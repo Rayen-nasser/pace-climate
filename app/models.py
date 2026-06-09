@@ -74,3 +74,26 @@ class UserGoal(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User")
+
+
+class DeviceToken(Base):
+    __tablename__ = "device_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    token = Column(String, unique=True)
+    platform = Column(String, default="web")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class ScheduledNotification(Base):
+    __tablename__ = "scheduled_notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    date = Column(String, index=True)
+    title = Column(String)
+    body = Column(String)
+    sent = Column(Integer, default=0)
+    sent_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

@@ -6,6 +6,8 @@
   <title>PaceClimate — Running Forecast</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://accounts.google.com/gsi/client"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
   <style>
     @keyframes fadeInUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
     @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
@@ -257,9 +259,18 @@
     const DEFAULT_CITY = "{{ default_city }}";
     const MIN_RUNS = 20;
 
+    const FCM_CONFIG = {
+      apiKey: "{{ fcm_api_key }}",
+      projectId: "paceclimate-f395b",
+      messagingSenderId: "{{ fcm_sender_id }}",
+      appId: "{{ fcm_app_id }}",
+    };
+    const FCM_ENABLED = FCM_CONFIG.apiKey && FCM_CONFIG.appId;
+
     let currentLat = DEFAULT_LAT;
     let currentLon = DEFAULT_LON;
     let currentPref = localStorage.getItem("paceclimate_time_pref") || "evening";
+    let scheduledNotifications = [];
 
     function getToken() { return localStorage.getItem("paceclimate_token"); }
 
@@ -318,11 +329,97 @@
           showDashboard(u.email);
           document.getElementById("run-date").value = new Date().toISOString().split("T")[0];
           autoLocate();
+          loadScheduled();
+          initFCM();
         }).catch(function() { showLogin(); });
         return;
       }
       showLogin();
     })();
+
+    // FCM Notifications
+    var fcmMessaging = null;
+    var fcmToken = null;
+
+    function initFCM() {
+      if (!FCM_ENABLED || fcmMessaging) return;
+      try {
+        firebase.initializeApp(FCM_CONFIG);
+        fcmMessaging = firebase.messaging();
+        navigator.serviceWorker.register("/firebase-messaging-sw.js").then(function(reg) {
+          fcmMessaging.useServiceWorker(reg);
+          reg.active && reg.active.postMessage({type: "FCM_CONFIG", config: FCM_CONFIG});
+        });
+      } catch(e) { console.log("FCM init skipped:", e.message); }
+    }
+
+    function requestNotificationPermission() {
+      return Notification.requestPermission().then(function(p) { return p === "granted"; });
+    }
+
+    function getFCMToken() {
+      if (!fcmMessaging || !FCM_ENABLED) return Promise.resolve(null);
+      return fcmMessaging.getToken({vapidKey: "BC3pY_Qm3U8rLkT9xW2zF5cG7jK0nA1sD4fH6iJ9lO2qR5tV8yB0eG3wM6pS9uX1vY4"})
+        .then(function(t) { fcmToken = t; return t; })
+        .catch(function() { return null; });
+    }
+
+    function registerDeviceToken() {
+      if (!fcmToken) return Promise.resolve();
+      return apiFetch("/api/notifications/register?token=" + encodeURIComponent(fcmToken) + "&platform=web", {method: "POST"}).catch(function() {});
+    }
+
+    function loadScheduled() {
+      apiFetch("/api/notifications/scheduled").then(function(d) {
+        if (!d) return;
+        scheduledNotifications = d.notifications || [];
+      }).catch(function() {});
+    }
+
+    function toggleReminder(date, label, temp, desc) {
+      if (!FCM_ENABLED) { showToast("FCM not configured — set FCM_API_KEY and FCM_APP_ID in .env", "error"); return; }
+      if (!fcmMessaging) initFCM();
+
+      var existing = scheduledNotifications.find(function(n) { return n.date === date; });
+      if (existing) {
+        apiFetch("/api/notifications/schedule/" + existing.id, {method: "DELETE"}).then(function() {
+          scheduledNotifications = scheduledNotifications.filter(function(n) { return n.id !== existing.id; });
+          showToast("Reminder removed for " + date, "info");
+          renderScheduledIcons();
+        }).catch(function() { showToast("Failed to remove reminder.", "error"); });
+      } else {
+        requestNotificationPermission().then(function(granted) {
+          if (!granted) { showToast("Enable notifications in browser settings.", "error"); return; }
+          getFCMToken().then(function(t) {
+            if (!t) { showToast("Failed to get notification token.", "error"); return; }
+            registerDeviceToken().then(function() {
+              var title = "🏃 PaceClimate Reminder";
+              var body = label + " day for a run! " + temp + "°C, " + desc;
+              apiFetch("/api/notifications/schedule?date=" + date + "&title=" + encodeURIComponent(title) + "&body=" + encodeURIComponent(body), {method: "POST"}).then(function(d) {
+                if (!d) return;
+                scheduledNotifications.push({id: d.id, date: date, title: title, body: body});
+                showToast("🔔 Reminder set for " + date, "success");
+                renderScheduledIcons();
+              }).catch(function() { showToast("Failed to set reminder.", "error"); });
+            });
+          });
+        });
+      }
+    }
+
+    function isScheduled(date) {
+      return scheduledNotifications.some(function(n) { return n.date === date; });
+    }
+
+    function renderScheduledIcons() {
+      document.querySelectorAll(".bell-btn").forEach(function(btn) {
+        var date = btn.dataset.date;
+        var on = isScheduled(date);
+        btn.innerHTML = on ? "🔔" : "🔕";
+        btn.className = "bell-btn text-xs transition-all duration-200 " + (on ? "opacity-100" : "opacity-40 hover:opacity-80");
+        btn.title = on ? "Remove reminder" : "Remind me on this day";
+      });
+    }
 
     var isLoginMode = true;
 
@@ -746,6 +843,7 @@
         var circumference = 2 * Math.PI * 28;
         var offset = circumference - (pct / 100) * circumference;
 
+        var bell = FCM_ENABLED ? '<button class="bell-btn text-xs opacity-40 hover:opacity-80 transition-all duration-200" data-date="' + day.date + '" data-label="' + day.label + '" data-temp="' + day.temp_used + '" data-desc="' + day.weather_desc + '" title="Remind me on this day">🔕</button>' : '';
         card.innerHTML =
           '<div class="flex items-start justify-between">' +
             '<div class="flex-1">' +
@@ -753,6 +851,7 @@
                 '<span class="text-lg font-bold text-gray-300">#' + rank + '</span>' +
                 '<span class="font-semibold text-base text-gray-100">' + formatDate(day.date) + '</span>' +
                 scoreBadge(day.label) +
+                bell +
               '</div>' +
               '<div class="flex items-center gap-3 mt-3">' +
                 '<span class="text-4xl">' + weatherIcon(day.weather_code) + '</span>' +
@@ -796,6 +895,11 @@
           btn.querySelector("span:last-child").textContent = isHidden ? "▲" : "▼";
         });
       });
+      document.querySelectorAll(".bell-btn").forEach(function(btn) {
+        btn.addEventListener("click", function() {
+          toggleReminder(btn.dataset.date, btn.dataset.label, btn.dataset.temp, btn.dataset.desc);
+        });
+      });
     }
 
     async function fetchForecast() {
@@ -812,6 +916,7 @@
         var data = await apiFetch(url);
         if (!data) return;
         renderDays(data.days);
+        renderScheduledIcons();
         loading.classList.add("hidden");
         container.classList.remove("hidden");
         if (data.run_count !== undefined) updateStats(data.run_count);

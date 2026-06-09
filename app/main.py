@@ -3,9 +3,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import os
 from fastapi import FastAPI, Request, Depends, Query
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -17,7 +19,8 @@ from .models import UserGoal
 from .trainer import train_model, predict_score, _get_user_averages, TOUGH_REASONS
 from .chat import answer_question
 from .auth import get_current_user, register_with_password, login_with_password, login_with_google
-from .models import User
+from .models import User, DeviceToken, ScheduledNotification
+from .notifications import init_firebase, notification_checker_loop, send_push
 
 app = FastAPI(title="PaceClimate")
 
@@ -30,6 +33,10 @@ app.add_middleware(
 
 templates = Jinja2Templates(directory="app/templates")
 
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.isdir(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
 DEFAULT_LAT = 34.425
 DEFAULT_LON = 8.784
 DEFAULT_CITY = "Gafsa, Tunisia"
@@ -38,9 +45,17 @@ DEFAULT_CITY = "Gafsa, Tunisia"
 @app.on_event("startup")
 def startup():
     init_db()
+    fcm_ok = init_firebase()
+    if fcm_ok:
+        import asyncio
+        asyncio.create_task(notification_checker_loop())
+        print("FCM notification loop started")
 
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+FCM_API_KEY = os.environ.get("FCM_API_KEY", "")
+FCM_APP_ID = os.environ.get("FCM_APP_ID", "")
+FCM_SENDER_ID = os.environ.get("FCM_SENDER_ID", "117274993002466647057")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -54,6 +69,9 @@ async def index(request: Request):
             "default_city": DEFAULT_CITY,
             "time_prefs": TIME_PREFS,
             "google_client_id": GOOGLE_CLIENT_ID,
+            "fcm_api_key": FCM_API_KEY,
+            "fcm_app_id": FCM_APP_ID,
+            "fcm_sender_id": FCM_SENDER_ID,
         },
     )
 
@@ -244,6 +262,61 @@ async def api_get_goals(user: User = Depends(get_current_user), db: Session = De
 @app.get("/api/averages")
 async def api_averages(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return _get_user_averages(db, user.id)
+
+
+@app.post("/api/notifications/register")
+async def api_register_device(
+    token: str = Query(...),
+    platform: str = Query("web"),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    existing = db.query(DeviceToken).filter_by(token=token).first()
+    if existing:
+        existing.user_id = user.id
+        existing.platform = platform
+    else:
+        db.add(DeviceToken(user_id=user.id, token=token, platform=platform))
+    db.commit()
+    return {"ok": True}
+
+
+@app.post("/api/notifications/schedule")
+async def api_schedule_notification(
+    date: str = Query(...),
+    title: str = Query(...),
+    body: str = Query(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    n = ScheduledNotification(user_id=user.id, date=date, title=title, body=body)
+    db.add(n)
+    db.commit()
+    return {"id": n.id, "date": date, "title": title}
+
+
+@app.get("/api/notifications/scheduled")
+async def api_list_scheduled(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    notes = db.query(ScheduledNotification).filter_by(user_id=user.id, sent=0).order_by(ScheduledNotification.date).all()
+    return {"notifications": [{"id": n.id, "date": n.date, "title": n.title, "body": n.body} for n in notes]}
+
+
+@app.delete("/api/notifications/schedule/{note_id}")
+async def api_delete_scheduled(note_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    n = db.query(ScheduledNotification).filter_by(id=note_id, user_id=user.id).first()
+    if n:
+        db.delete(n)
+        db.commit()
+    return {"ok": True}
+
+
+@app.get("/firebase-messaging-sw.js")
+async def service_worker():
+    sw_path = os.path.join(os.path.dirname(__file__), "static", "firebase-messaging-sw.js")
+    if os.path.exists(sw_path):
+        with open(sw_path, "r", encoding="utf-8") as f:
+            return Response(content=f.read(), media_type="application/javascript")
+    return JSONResponse(status_code=404, content={"detail": "Not found"})
 
 
 @app.get("/api/chat")
