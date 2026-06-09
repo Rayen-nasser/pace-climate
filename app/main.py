@@ -127,13 +127,18 @@ async def api_log_run(
     max_hr: int = Query(None),
     elevation_gain: float = Query(None),
     tough_reasons: str = Query(None),
+    run_type: str = Query(None),
+    perceived_effort: int = Query(None),
+    pre_run_energy: int = Query(None),
+    sleep_hours: float = Query(None),
+    muscle_soreness: int = Query(None),
     lat: float = Query(34.425),
     lon: float = Query(8.784),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     weather = await fetch_historical_weather(lat, lon, date)
-    log = log_run(db, user.id, date, distance_km, duration_min, rating, notes, weather, avg_hr, max_hr, elevation_gain, tough_reasons)
+    log = log_run(db, user.id, date, distance_km, duration_min, rating, notes, weather, avg_hr, max_hr, elevation_gain, tough_reasons, run_type, perceived_effort, pre_run_energy, sleep_hours, muscle_soreness)
     count = get_run_count(db, user.id)
     trained = False
     if count >= 20 and count % 5 == 0:
@@ -158,6 +163,11 @@ async def api_get_runs(user: User = Depends(get_current_user), db: Session = Dep
                 "elevation_gain": r.elevation_gain,
                 "notes": r.notes,
                 "tough_reasons": r.tough_reasons,
+                "run_type": r.run_type,
+                "perceived_effort": r.perceived_effort,
+                "pre_run_energy": r.pre_run_energy,
+                "sleep_hours": r.sleep_hours,
+                "muscle_soreness": r.muscle_soreness,
                 "created_at": str(r.created_at),
             }
             for r in runs

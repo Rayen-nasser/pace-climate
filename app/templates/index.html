@@ -156,7 +156,17 @@
               <div><label class="text-[10px] text-gray-500 mb-0.5 block">Avg HR</label><input type="number" id="run-avg-hr" class="w-full bg-gray-800/80 rounded-lg px-2.5 py-1.5 text-xs border border-gray-700/50 focus:outline-none focus:border-emerald-500/50 transition placeholder:text-gray-600" placeholder="145"></div>
               <div><label class="text-[10px] text-gray-500 mb-0.5 block">Max HR</label><input type="number" id="run-max-hr" class="w-full bg-gray-800/80 rounded-lg px-2.5 py-1.5 text-xs border border-gray-700/50 focus:outline-none focus:border-emerald-500/50 transition placeholder:text-gray-600" placeholder="175"></div>
               <div><label class="text-[10px] text-gray-500 mb-0.5 block">Climb (m) <span class="relative group cursor-help"><span class="text-gray-600">?</span><span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded bg-gray-800 text-gray-300 text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none shadow-lg z-10">Total uphill gain</span></span></label><input type="number" step="1" id="run-elevation" class="w-full bg-gray-800/80 rounded-lg px-2.5 py-1.5 text-xs border border-gray-700/50 focus:outline-none focus:border-emerald-500/50 transition placeholder:text-gray-600" placeholder="50"></div>
-              <div class="col-span-2"><label class="text-[10px] text-gray-500 mb-0.5 block">Notes</label><input type="text" id="run-notes" class="w-full bg-gray-800/80 rounded-lg px-2.5 py-1.5 text-xs border border-gray-700/50 focus:outline-none focus:border-emerald-500/50 transition placeholder:text-gray-600" placeholder="Felt great!"></div>
+              <div><label class="text-[10px] text-gray-500 mb-0.5 block">Run Type</label><select id="run-type" class="w-full bg-gray-800/80 rounded-lg px-2.5 py-1.5 text-xs border border-gray-700/50 focus:outline-none focus:border-emerald-500/50 transition"><option value="">—</option><option value="easy">Easy</option><option value="tempo">Tempo</option><option value="interval">Interval</option><option value="long_run">Long Run</option><option value="race">Race</option><option value="recovery">Recovery</option></select></div>
+              <div><label class="text-[10px] text-gray-500 mb-0.5 block">Notes</label><input type="text" id="run-notes" class="w-full bg-gray-800/80 rounded-lg px-2.5 py-1.5 text-xs border border-gray-700/50 focus:outline-none focus:border-emerald-500/50 transition placeholder:text-gray-600" placeholder="Felt great!"></div>
+            </div>
+            <div class="mt-2 p-3 bg-gray-800/40 rounded-xl border border-gray-700/30">
+              <label class="text-[10px] text-gray-400 block mb-2">How did you feel before/during?</label>
+              <div class="grid grid-cols-4 gap-2">
+                <div><label class="text-[10px] text-gray-500 mb-0.5 block">Effort (RPE) <span class="relative group cursor-help"><span class="text-gray-600">?</span><span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded bg-gray-800 text-gray-300 text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none shadow-lg z-10">1=easy, 10=max</span></span></label><select id="run-rpe" class="w-full bg-gray-800/80 rounded-lg px-2.5 py-1.5 text-xs border border-gray-700/50 focus:outline-none focus:border-emerald-500/50 transition"><option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select></div>
+                <div><label class="text-[10px] text-gray-500 mb-0.5 block">Energy <span class="relative group cursor-help"><span class="text-gray-600">?</span><span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded bg-gray-800 text-gray-300 text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none shadow-lg z-10">1=exhausted, 5=great</span></span></label><select id="run-energy" class="w-full bg-gray-800/80 rounded-lg px-2.5 py-1.5 text-xs border border-gray-700/50 focus:outline-none focus:border-emerald-500/50 transition"><option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
+                <div><label class="text-[10px] text-gray-500 mb-0.5 block">Sleep (hrs)</label><input type="number" step="0.5" id="run-sleep" class="w-full bg-gray-800/80 rounded-lg px-2.5 py-1.5 text-xs border border-gray-700/50 focus:outline-none focus:border-emerald-500/50 transition placeholder:text-gray-600" placeholder="7"></div>
+                <div><label class="text-[10px] text-gray-500 mb-0.5 block">Soreness <span class="relative group cursor-help"><span class="text-gray-600">?</span><span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded bg-gray-800 text-gray-300 text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none shadow-lg z-10">1=no soreness, 5=very sore</span></span></label><select id="run-soreness" class="w-full bg-gray-800/80 rounded-lg px-2.5 py-1.5 text-xs border border-gray-700/50 focus:outline-none focus:border-emerald-500/50 transition"><option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
+              </div>
             </div>
             <div id="run-tough-reasons" class="hidden mt-2 p-3 bg-red-900/20 rounded-xl border border-red-800/30">
               <label class="text-[10px] text-gray-400 block mb-2">Why was it tough?</label>
@@ -431,6 +441,11 @@
       var elevation = document.getElementById("run-elevation").value;
       var notes = document.getElementById("run-notes").value;
       var toughReasons = getToughReasons("run");
+      var runType = document.getElementById("run-type").value;
+      var rpe = document.getElementById("run-rpe").value;
+      var energy = document.getElementById("run-energy").value;
+      var sleep = document.getElementById("run-sleep").value;
+      var soreness = document.getElementById("run-soreness").value;
 
       if (!distance || !duration) {
         showToast("Please enter distance and duration.", "error");
@@ -444,6 +459,11 @@
         if (elevation) url += "&elevation_gain=" + elevation;
         if (notes) url += "&notes=" + encodeURIComponent(notes);
         if (toughReasons) url += "&tough_reasons=" + encodeURIComponent(toughReasons);
+        if (runType) url += "&run_type=" + runType;
+        if (rpe) url += "&perceived_effort=" + rpe;
+        if (energy) url += "&pre_run_energy=" + energy;
+        if (sleep) url += "&sleep_hours=" + sleep;
+        if (soreness) url += "&muscle_soreness=" + soreness;
         var data = await apiFetch(url, { method: "POST" });
         if (!data) return;
         showToast("Run saved! (" + data.run_count + " total)" + (data.model_trained ? " AI retrained!" : ""), "success");
@@ -454,6 +474,11 @@
         document.getElementById("run-max-hr").value = "";
         document.getElementById("run-elevation").value = "";
         document.getElementById("run-notes").value = "";
+        document.getElementById("run-type").value = "";
+        document.getElementById("run-rpe").value = "";
+        document.getElementById("run-energy").value = "";
+        document.getElementById("run-sleep").value = "";
+        document.getElementById("run-soreness").value = "";
         document.getElementById("run-tough-reasons").classList.add("hidden");
         document.querySelectorAll("#run-tough-reasons .tough-reason").forEach(function(c) { c.checked = false; });
         loadAverages();
@@ -502,18 +527,26 @@
             var checked = tough.indexOf(chip.v) >= 0 ? "checked" : "";
             return '<label class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-gray-800 hover:bg-gray-700 border border-gray-700/50 cursor-pointer has-[:checked]:bg-red-800/60 has-[:checked]:border-red-600/50"><input type="checkbox" class="sr-only tough-reason" value="' + chip.v + '" ' + checked + '> ' + chip.l + '</label>';
           }).join("");
+          var sessionParts = [];
+          if (r.run_type) sessionParts.push({v: r.run_type.replace("_", " "), e: ""});
+          if (r.perceived_effort) sessionParts.push({v: "RPE " + r.perceived_effort, e: ""});
+          if (r.pre_run_energy) sessionParts.push({v: "Energy " + r.pre_run_energy + "/5", e: ""});
+          if (r.sleep_hours) sessionParts.push({v: r.sleep_hours + "h sleep", e: ""});
+          if (r.muscle_soreness) sessionParts.push({v: "Sore " + r.muscle_soreness + "/5", e: ""});
+          var sessionStr = sessionParts.length ? '<div class="text-[10px] text-gray-500 mt-0.5">' + sessionParts.map(function(s) { return '<span class="mr-1.5">' + s.v + '</span>'; }).join("·") + '</div>' : "";
           return '<div class="flex items-center justify-between py-3 border-b border-gray-800/50 last:border-0 animate-fade-in-up">' +
-            '<div class="flex items-center gap-3">' +
-              '<span class="text-lg">' + emojis[r.rating - 1] + '</span>' +
-              '<div>' +
-                '<div class="text-sm font-medium text-gray-200">' + r.date + '</div>' +
-                '<div class="text-xs text-gray-500">' + r.distance_km + ' km &middot; ' + pace + ' min/km' + '</div>' +
+            '<div class="flex items-center gap-3 min-w-0 flex-1">' +
+              '<span class="text-lg flex-shrink-0">' + emojis[r.rating - 1] + '</span>' +
+              '<div class="min-w-0">' +
+                '<div class="text-sm font-medium text-gray-200 truncate">' + r.date + '</div>' +
+                '<div class="text-xs text-gray-500">' + r.distance_km + ' km &middot; ' + pace + ' min/km</div>' +
                 toughStr +
+                sessionStr +
               '</div>' +
             '</div>' +
-            '<div class="text-right">' +
+            '<div class="text-right flex-shrink-0 ml-2">' +
               '<div class="text-sm text-gray-300">' + r.duration_min + ' min</div>' +
-              (r.notes ? '<div class="text-xs text-gray-500">' + r.notes + '</div>' : '') +
+              (r.notes ? '<div class="text-xs text-gray-500 max-w-[100px] truncate">' + r.notes + '</div>' : '') +
               '<div class="mt-1"><select onchange="rateRun(' + r.id + ', this.value)" class="bg-gray-800 rounded px-1.5 py-0.5 text-xs border border-gray-700/50">' + ratingOpts + '</select></div>' +
               '<div id="hist-tough-' + r.id + '" class="' + (r.rating > 2 ? 'hidden' : '') + ' mt-1.5 flex flex-wrap gap-1">' + toughChips + '</div>' +
             '</div>' +

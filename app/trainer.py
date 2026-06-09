@@ -13,6 +13,11 @@ MIN_RUNS_FOR_TRAINING = 20
 
 TOUGH_REASONS = ["rain", "wind", "heat", "humidity", "tired", "injury", "hills", "stress"]
 
+SESSION_FIELDS = ["run_type_easy", "run_type_tempo", "run_type_interval", "run_type_long_run", "run_type_race", "run_type_recovery",
+                  "perceived_effort", "pre_run_energy", "sleep_hours", "muscle_soreness"]
+
+DERIVATIVE_FIELDS = ["days_since_last_run", "recent_7d_distance", "recent_7d_run_count", "heat_index"]
+
 
 def _get_user_avg(db: Session, user_id: int, field, default):
     val = db.query(func.avg(getattr(RunLog, field))).filter(
@@ -43,6 +48,11 @@ def _get_user_averages(db: Session, user_id: int):
     def avg(arr):
         return round(sum(arr) / len(arr), 1) if arr else 0
 
+    ses = [l for l in logs if l.sleep_hours]
+    ene = [l for l in logs if l.pre_run_energy]
+    sor = [l for l in logs if l.muscle_soreness]
+    rpe = [l for l in logs if l.perceived_effort]
+
     return {
         "distance_km": avg(dists) or 5.0,
         "duration_min": avg(durs) or 30,
@@ -50,6 +60,13 @@ def _get_user_averages(db: Session, user_id: int):
         "avg_hr": avg(hrs) or 140,
         "max_hr": avg(max_hrs) or 175,
         "elevation_gain": avg(elevs) or 0,
+        "sleep_hours": avg([l.sleep_hours for l in ses]) if ses else 7,
+        "pre_run_energy": round(avg([l.pre_run_energy for l in ene])) if ene else 3,
+        "muscle_soreness": round(avg([l.muscle_soreness for l in sor])) if sor else 2,
+        "perceived_effort": round(avg([l.perceived_effort for l in rpe])) if rpe else 5,
+        "days_since_last_run": 2,
+        "recent_7d_distance": 15,
+        "recent_7d_run_count": 3,
     }
 
 
@@ -73,7 +90,20 @@ def _parse_tough_reasons(run_log):
     return reasons
 
 
-def _extract_features(run_log, user_averages=None):
+def _get_run_type_flags(run_type):
+    types = ["easy", "tempo", "interval", "long_run", "race", "recovery"]
+    return [1 if run_type == t else 0 for t in types]
+
+
+def _compute_heat_index(ws):
+    apparent = ws.get("apparent_max")
+    actual = ws.get("temp_max")
+    if apparent is not None and actual is not None:
+        return round(apparent - actual, 1)
+    return 0
+
+
+def _extract_features(run_log, user_averages=None, prev_log=None, recent_7d_logs=None):
     ws = json.loads(run_log.weather_snapshot) if run_log.weather_snapshot else {}
     dist = run_log.distance_km or 0
     dur = run_log.duration_min or 0
@@ -90,6 +120,34 @@ def _extract_features(run_log, user_averages=None):
     reasons = _parse_tough_reasons(run_log)
     reason_flags = [1 if r in reasons else 0 for r in TOUGH_REASONS]
 
+    # Phase A: session feedback
+    run_type_flags = _get_run_type_flags(run_log.run_type)
+    pee = run_log.perceived_effort or (user_averages.get("perceived_effort") if user_averages else 5)
+    ene = run_log.pre_run_energy or (user_averages.get("pre_run_energy") if user_averages else 3)
+    sle = run_log.sleep_hours or (user_averages.get("sleep_hours") if user_averages else 7)
+    sor = run_log.muscle_soreness or (user_averages.get("muscle_soreness") if user_averages else 2)
+
+    # Phase B: derivative features
+    if prev_log:
+        from datetime import datetime
+        try:
+            d1 = datetime.strptime(run_log.date, "%Y-%m-%d")
+            d0 = datetime.strptime(prev_log.date, "%Y-%m-%d")
+            days_since = (d1 - d0).days
+        except (ValueError, TypeError):
+            days_since = 2
+    else:
+        days_since = user_averages.get("days_since_last_run", 2) if user_averages else 2
+
+    if recent_7d_logs:
+        recent_7d_dist = sum((l.distance_km or 0) for l in recent_7d_logs)
+        recent_7d_cnt = len(recent_7d_logs)
+    else:
+        recent_7d_dist = user_averages.get("recent_7d_distance", 15) if user_averages else 15
+        recent_7d_cnt = user_averages.get("recent_7d_run_count", 3) if user_averages else 3
+
+    heat_idx = _compute_heat_index(ws)
+
     return [
         ws.get("temp_max", 25),
         ws.get("temp_min", 15),
@@ -103,13 +161,13 @@ def _extract_features(run_log, user_averages=None):
         avg_hr or 140,
         max_hr or 175,
         elev if elev is not None else 0,
-    ] + reason_flags
+    ] + reason_flags + run_type_flags + [pee, ene, sle, sor] + [days_since, recent_7d_dist, recent_7d_cnt, heat_idx]
 
 
 FEATURE_NAMES = [
     "temp_max", "temp_min", "precip_sum", "precip_prob", "wind_max", "weather_code",
     "distance_km", "duration_min", "pace", "avg_hr", "max_hr", "elevation_gain",
-] + TOUGH_REASONS
+] + TOUGH_REASONS + SESSION_FIELDS + DERIVATIVE_FIELDS
 
 
 def train_model(db: Session, user_id: int):
@@ -119,7 +177,17 @@ def train_model(db: Session, user_id: int):
         return None
 
     avg = _get_user_averages(db, user_id)
-    X = np.array([_extract_features(log, avg) for log in logs])
+
+    def _compute_recent_7d(idx):
+        from datetime import datetime, timedelta
+        try:
+            cur = datetime.strptime(logs[idx].date, "%Y-%m-%d")
+            cutoff = cur - timedelta(days=7)
+            return [logs[j] for j in range(idx) if logs[j].date and datetime.strptime(logs[j].date, "%Y-%m-%d") >= cutoff]
+        except (ValueError, TypeError):
+            return []
+
+    X = np.array([_extract_features(logs[i], avg, logs[i-1] if i > 0 else None, _compute_recent_7d(i)) for i in range(len(logs))])
     y = np.array([log.rating for log in logs])
 
     model = RandomForestRegressor(n_estimators=50, max_depth=5, random_state=42)
@@ -160,6 +228,10 @@ def predict_score(db: Session, user_id: int, day: dict, planned_distance=None, p
     dist, dur, pace = _resolve_effort(db, user_id, planned_distance, planned_duration)
     avg = _get_user_averages(db, user_id)
 
+    apparent_max = day.get("apparent_max")
+    temp_max = day.get("temp_max", 25)
+    heat_idx = round((apparent_max - temp_max), 1) if apparent_max is not None else 0
+
     features = np.array([[
         day.get("temp_max", 25),
         day.get("temp_min", 15),
@@ -173,7 +245,11 @@ def predict_score(db: Session, user_id: int, day: dict, planned_distance=None, p
         avg["avg_hr"],
         avg["max_hr"],
         avg["elevation_gain"],
-    ] + [0] * len(TOUGH_REASONS)])
+    ] + [0] * len(TOUGH_REASONS)
+    + [0] * 6  # run_type flags — all zero for future
+    + [avg.get("perceived_effort", 5), avg.get("pre_run_energy", 3), avg.get("sleep_hours", 7), avg.get("muscle_soreness", 2)]
+    + [avg.get("days_since_last_run", 2), avg.get("recent_7d_distance", 15), avg.get("recent_7d_run_count", 3), heat_idx]
+    ])
 
     pred = model.predict(features)[0]
     return max(0, min(100, pred * 20))

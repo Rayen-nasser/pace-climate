@@ -61,7 +61,7 @@ async def fetch_historical_weather(lat, lon, date_str):
         "longitude": lon,
         "start_date": date_str,
         "end_date": date_str,
-        "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code,wind_speed_10m_max",
+        "daily": "temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,precipitation_probability_max,weather_code,wind_speed_10m_max",
         "timezone": "auto",
     }
     async with httpx.AsyncClient() as client:
@@ -77,6 +77,8 @@ async def fetch_historical_weather(lat, lon, date_str):
     return {
         "temp_max": daily["temperature_2m_max"][0],
         "temp_min": daily["temperature_2m_min"][0],
+        "apparent_max": daily.get("apparent_temperature_max", [daily["temperature_2m_max"][0]])[0],
+        "apparent_min": daily.get("apparent_temperature_min", [daily["temperature_2m_min"][0]])[0],
         "precip_sum": daily["precipitation_sum"][0],
         "precip_prob": daily.get("precipitation_probability_max", [0])[0] or 0,
         "wind_max": daily["wind_speed_10m_max"][0],

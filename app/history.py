@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from .models import RunLog
 
 
-def log_run(db: Session, user_id: int, date_str: str, distance_km: float, duration_min: int, rating: int, notes: str = None, weather_snapshot: dict = None, avg_hr: int = None, max_hr: int = None, elevation_gain: float = None, tough_reasons: str = None):
+def log_run(db: Session, user_id: int, date_str: str, distance_km: float, duration_min: int, rating: int, notes: str = None, weather_snapshot: dict = None, avg_hr: int = None, max_hr: int = None, elevation_gain: float = None, tough_reasons: str = None, run_type: str = None, perceived_effort: int = None, pre_run_energy: int = None, sleep_hours: float = None, muscle_soreness: int = None):
     log = RunLog(
         user_id=user_id,
         date=date_str,
@@ -19,6 +19,11 @@ def log_run(db: Session, user_id: int, date_str: str, distance_km: float, durati
         notes=notes,
         weather_snapshot=json.dumps(weather_snapshot) if weather_snapshot else None,
         tough_reasons=tough_reasons,
+        run_type=run_type,
+        perceived_effort=perceived_effort,
+        pre_run_energy=pre_run_energy,
+        sleep_hours=sleep_hours,
+        muscle_soreness=muscle_soreness,
     )
     db.add(log)
     db.commit()

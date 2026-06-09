@@ -46,6 +46,11 @@ class RunLog(Base):
     weather_snapshot = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
     tough_reasons = Column(Text, nullable=True)
+    run_type = Column(String, nullable=True)
+    perceived_effort = Column(Integer, nullable=True)
+    pre_run_energy = Column(Integer, nullable=True)
+    sleep_hours = Column(Float, nullable=True)
+    muscle_soreness = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="run_logs")
