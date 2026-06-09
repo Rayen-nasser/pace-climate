@@ -344,12 +344,8 @@
     function initFCM() {
       if (!FCM_ENABLED || fcmMessaging) return;
       try {
-        firebase.initializeApp(FCM_CONFIG);
+        if (!firebase.apps.length) firebase.initializeApp(FCM_CONFIG);
         fcmMessaging = firebase.messaging();
-        navigator.serviceWorker.register("/firebase-messaging-sw.js").then(function(reg) {
-          fcmMessaging.useServiceWorker(reg);
-          reg.active && reg.active.postMessage({type: "FCM_CONFIG", config: FCM_CONFIG});
-        });
       } catch(e) { console.log("FCM init skipped:", e.message); }
     }
 
@@ -359,7 +355,7 @@
 
     function getFCMToken() {
       if (!fcmMessaging || !FCM_ENABLED) return Promise.resolve(null);
-      return fcmMessaging.getToken({vapidKey: "BC3pY_Qm3U8rLkT9xW2zF5cG7jK0nA1sD4fH6iJ9lO2qR5tV8yB0eG3wM6pS9uX1vY4"})
+      return fcmMessaging.getToken()
         .then(function(t) { fcmToken = t; return t; })
         .catch(function() { return null; });
     }

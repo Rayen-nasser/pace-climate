@@ -315,7 +315,11 @@ async def service_worker():
     sw_path = os.path.join(os.path.dirname(__file__), "static", "firebase-messaging-sw.js")
     if os.path.exists(sw_path):
         with open(sw_path, "r", encoding="utf-8") as f:
-            return Response(content=f.read(), media_type="application/javascript")
+            content = f.read()
+        content = content.replace("__FCM_API_KEY__", FCM_API_KEY)
+        content = content.replace("__FCM_APP_ID__", FCM_APP_ID)
+        content = content.replace("__FCM_SENDER_ID__", FCM_SENDER_ID)
+        return Response(content=content, media_type="application/javascript")
     return JSONResponse(status_code=404, content={"detail": "Not found"})
 
 
