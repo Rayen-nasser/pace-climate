@@ -16,11 +16,13 @@
 
 ## Phase E ✓ — Push Notifications (FCM)
 - [x] Firebase Cloud Messaging integration (backend)
-- [x] `DeviceToken` + `ScheduledNotification` models
-- [x] Background checker loop (every 60s)
+- [x] `DeviceToken` + `ScheduledNotification` models (with `time` field)
+- [x] Background checker loop (every 60s, sends at correct time)
 - [x] 🔔 Remind button on forecast cards
 - [x] Service worker for background push delivery
 - [x] Schedule/cancel endpoints + UI
+- [x] Time picker modal (presets: 7AM, 1PM, 5PM, 7PM + custom)
+- [x] "My Reminders" section listing all scheduled notifications with delete
 
 ## Pending
 - Route suggestion: flat vs hilly based on energy + weather

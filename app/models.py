@@ -92,6 +92,7 @@ class ScheduledNotification(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), index=True)
     date = Column(String, index=True)
+    time = Column(String, default="17:00")
     title = Column(String)
     body = Column(String)
     sent = Column(Integer, default=0)

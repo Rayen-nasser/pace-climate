@@ -1,5 +1,4 @@
 import os
-import json
 import asyncio
 from datetime import datetime, timezone
 
@@ -50,11 +49,14 @@ async def notification_checker_loop():
             db = SessionLocal()
             now = datetime.now(timezone.utc)
             today = now.strftime("%Y-%m-%d")
+            current_time = now.strftime("%H:%M")
             due = db.query(ScheduledNotification).filter(
                 ScheduledNotification.date == today,
                 ScheduledNotification.sent == 0,
             ).all()
             for notif in due:
+                if notif.time and notif.time > current_time:
+                    continue
                 ok = send_push(notif.user_id, notif.title, notif.body)
                 if ok:
                     notif.sent = 1

@@ -284,21 +284,22 @@ async def api_register_device(
 @app.post("/api/notifications/schedule")
 async def api_schedule_notification(
     date: str = Query(...),
+    time: str = Query("17:00"),
     title: str = Query(...),
     body: str = Query(...),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    n = ScheduledNotification(user_id=user.id, date=date, title=title, body=body)
+    n = ScheduledNotification(user_id=user.id, date=date, time=time, title=title, body=body)
     db.add(n)
     db.commit()
-    return {"id": n.id, "date": date, "title": title}
+    return {"id": n.id, "date": date, "time": time, "title": title}
 
 
 @app.get("/api/notifications/scheduled")
 async def api_list_scheduled(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     notes = db.query(ScheduledNotification).filter_by(user_id=user.id, sent=0).order_by(ScheduledNotification.date).all()
-    return {"notifications": [{"id": n.id, "date": n.date, "title": n.title, "body": n.body} for n in notes]}
+    return {"notifications": [{"id": n.id, "date": n.date, "time": n.time, "title": n.title, "body": n.body} for n in notes]}
 
 
 @app.delete("/api/notifications/schedule/{note_id}")

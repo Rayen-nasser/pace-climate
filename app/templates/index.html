@@ -219,6 +219,18 @@
 
           <!-- Forecast Cards -->
           <div id="days-container" class="space-y-2.5 hidden"></div>
+
+          <!-- My Reminders -->
+          <div id="reminders-section" class="hidden bg-gray-900/60 rounded-xl border border-gray-800/30 p-4 animate-slide-down">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2">
+                <span class="text-base">🔔</span>
+                <h3 class="text-xs font-semibold text-gray-200">My Reminders</h3>
+              </div>
+              <span id="reminder-count" class="text-[10px] text-gray-500"></span>
+            </div>
+            <div id="reminders-list" class="space-y-2"></div>
+          </div>
         </div>
 
         <!-- RIGHT COLUMN: Chat always visible -->
@@ -246,6 +258,29 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Time Picker Modal -->
+  <div id="time-picker-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onclick="closeTimePicker(event)">
+    <div class="bg-gray-900 rounded-2xl border border-gray-700/50 p-6 w-72 shadow-2xl animate-fade-in-up" onclick="event.stopPropagation()">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="text-lg">🔔</span>
+        <h4 class="text-sm font-semibold text-gray-200">Set Reminder Time</h4>
+      </div>
+      <p id="time-picker-date" class="text-xs text-gray-400 mb-1"></p>
+      <p id="time-picker-desc" class="text-xs text-gray-500 mb-4"></p>
+      <div class="flex gap-2 mb-4">
+        <button class="time-preset px-2.5 py-1.5 rounded-lg text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700/50 transition" data-time="07:00">🌅 7 AM</button>
+        <button class="time-preset px-2.5 py-1.5 rounded-lg text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700/50 transition" data-time="13:00">☀️ 1 PM</button>
+        <button class="time-preset px-2.5 py-1.5 rounded-lg text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700/50 transition" data-time="17:00">🌙 5 PM</button>
+        <button class="time-preset px-2.5 py-1.5 rounded-lg text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700/50 transition" data-time="19:00">🌃 7 PM</button>
+      </div>
+      <input type="time" id="time-picker-input" class="w-full bg-gray-800 rounded-lg px-3 py-2 text-sm border border-gray-700/50 focus:outline-none focus:border-emerald-500/50 mb-4">
+      <div class="flex gap-2">
+        <button id="time-picker-cancel" class="flex-1 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs transition">Cancel</button>
+        <button id="time-picker-save" class="flex-1 py-2 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-xs font-semibold transition">Set Reminder</button>
       </div>
     </div>
   </div>
@@ -365,10 +400,19 @@
       return apiFetch("/api/notifications/register?token=" + encodeURIComponent(fcmToken) + "&platform=web", {method: "POST"}).catch(function() {});
     }
 
+    var pendingReminder = null;
+
+    function defaultTimeForPref(pref) {
+      if (pref === "morning") return "07:00";
+      if (pref === "afternoon") return "13:00";
+      return "17:00";
+    }
+
     function loadScheduled() {
       apiFetch("/api/notifications/scheduled").then(function(d) {
         if (!d) return;
         scheduledNotifications = d.notifications || [];
+        renderReminders();
       }).catch(function() {});
     }
 
@@ -380,28 +424,63 @@
       if (existing) {
         apiFetch("/api/notifications/schedule/" + existing.id, {method: "DELETE"}).then(function() {
           scheduledNotifications = scheduledNotifications.filter(function(n) { return n.id !== existing.id; });
-          showToast("Reminder removed for " + date, "info");
+          showToast("Reminder removed for " + formatDate(date), "info");
           renderScheduledIcons();
+          renderReminders();
         }).catch(function() { showToast("Failed to remove reminder.", "error"); });
       } else {
-        requestNotificationPermission().then(function(granted) {
-          if (!granted) { showToast("Enable notifications in browser settings.", "error"); return; }
-          getFCMToken().then(function(t) {
-            if (!t) { showToast("Failed to get notification token.", "error"); return; }
-            registerDeviceToken().then(function() {
-              var title = "🏃 PaceClimate Reminder";
-              var body = label + " day for a run! " + temp + "°C, " + desc;
-              apiFetch("/api/notifications/schedule?date=" + date + "&title=" + encodeURIComponent(title) + "&body=" + encodeURIComponent(body), {method: "POST"}).then(function(d) {
-                if (!d) return;
-                scheduledNotifications.push({id: d.id, date: date, title: title, body: body});
-                showToast("🔔 Reminder set for " + date, "success");
-                renderScheduledIcons();
-              }).catch(function() { showToast("Failed to set reminder.", "error"); });
-            });
-          });
-        });
+        pendingReminder = { date: date, label: label, temp: temp, desc: desc };
+        var modal = document.getElementById("time-picker-modal");
+        document.getElementById("time-picker-date").textContent = "📅 " + formatDate(date);
+        document.getElementById("time-picker-desc").textContent = label + " · " + temp + "°C, " + desc;
+        var pref = localStorage.getItem("paceclimate_time_pref") || "evening";
+        document.getElementById("time-picker-input").value = defaultTimeForPref(pref);
+        modal.classList.remove("hidden");
       }
     }
+
+    function closeTimePicker(event) {
+      if (event && event.target !== event.currentTarget) return;
+      document.getElementById("time-picker-modal").classList.add("hidden");
+      pendingReminder = null;
+    }
+
+    function confirmReminder() {
+      if (!pendingReminder) return;
+      var time = document.getElementById("time-picker-input").value || defaultTimeForPref(localStorage.getItem("paceclimate_time_pref") || "evening");
+      var date = pendingReminder.date;
+      var label = pendingReminder.label;
+      var temp = pendingReminder.temp;
+      var desc = pendingReminder.desc;
+      document.getElementById("time-picker-modal").classList.add("hidden");
+
+      requestNotificationPermission().then(function(granted) {
+        if (!granted) { showToast("Enable notifications in browser settings.", "error"); return; }
+        getFCMToken().then(function(t) {
+          if (!t) { showToast("Failed to get notification token.", "error"); return; }
+          registerDeviceToken().then(function() {
+            var title = "🏃 PaceClimate Reminder";
+            var body = label + " day for a run! " + temp + "°C, " + desc;
+            apiFetch("/api/notifications/schedule?date=" + date + "&time=" + encodeURIComponent(time) + "&title=" + encodeURIComponent(title) + "&body=" + encodeURIComponent(body), {method: "POST"}).then(function(d) {
+              if (!d) return;
+              scheduledNotifications.push({id: d.id, date: date, time: time, title: title, body: body});
+              showToast("🔔 Reminder set for " + formatDate(date) + " at " + time, "success");
+              renderScheduledIcons();
+              renderReminders();
+            }).catch(function() { showToast("Failed to set reminder.", "error"); });
+          });
+        });
+      });
+      pendingReminder = null;
+    }
+
+    document.getElementById("time-picker-save").addEventListener("click", confirmReminder);
+    document.getElementById("time-picker-cancel").addEventListener("click", function() { closeTimePicker({ target: null, currentTarget: null }); });
+    document.querySelectorAll(".time-preset").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        document.getElementById("time-picker-input").value = btn.dataset.time;
+      });
+    });
 
     function isScheduled(date) {
       return scheduledNotifications.some(function(n) { return n.date === date; });
@@ -415,6 +494,42 @@
         btn.className = "bell-btn text-xs transition-all duration-200 ml-1 " + (on ? "text-emerald-400" : "text-gray-500 hover:text-emerald-400");
         btn.title = on ? "Remove reminder" : "Notify me on this day";
       });
+    }
+
+    function renderReminders() {
+      var section = document.getElementById("reminders-section");
+      var list = document.getElementById("reminders-list");
+      var count = document.getElementById("reminder-count");
+      if (scheduledNotifications.length === 0) {
+        section.classList.add("hidden");
+        return;
+      }
+      section.classList.remove("hidden");
+      count.textContent = scheduledNotifications.length + " reminder" + (scheduledNotifications.length > 1 ? "s" : "");
+      scheduledNotifications.sort(function(a, b) { return a.date.localeCompare(b.date) || a.time.localeCompare(b.time); });
+      list.innerHTML = scheduledNotifications.map(function(n) {
+        var dateDisplay = formatDate(n.date);
+        var timeDisplay = n.time || "17:00";
+        return '<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-800/40 border border-gray-700/30 hover:border-gray-600/50 transition-all duration-200 animate-fade-in-up">' +
+          '<div class="flex items-center gap-3">' +
+            '<span class="text-base">🔔</span>' +
+            '<div>' +
+              '<div class="text-sm font-medium text-gray-200">' + dateDisplay + '</div>' +
+              '<div class="text-[10px] text-gray-500">🕐 ' + timeDisplay + ' · ' + (n.title || "Run reminder") + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<button onclick="deleteReminder(' + n.id + ')" class="text-xs text-gray-500 hover:text-red-400 transition px-2 py-1 rounded hover:bg-red-900/30">✕</button>' +
+        '</div>';
+      }).join("");
+    }
+
+    function deleteReminder(id) {
+      apiFetch("/api/notifications/schedule/" + id, {method: "DELETE"}).then(function() {
+        scheduledNotifications = scheduledNotifications.filter(function(n) { return n.id !== id; });
+        showToast("Reminder deleted.", "info");
+        renderScheduledIcons();
+        renderReminders();
+      }).catch(function() { showToast("Failed to delete reminder.", "error"); });
     }
 
     var isLoginMode = true;
