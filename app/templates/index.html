@@ -381,6 +381,11 @@
       try {
         if (!firebase.apps.length) firebase.initializeApp(FCM_CONFIG);
         fcmMessaging = firebase.messaging();
+        fcmMessaging.onMessage(function(payload) {
+          var title = payload.notification.title || "PaceClimate";
+          var body = payload.notification.body || "";
+          showToast("🔔 " + body, "info");
+        });
       } catch(e) { console.log("FCM init skipped:", e.message); }
     }
 

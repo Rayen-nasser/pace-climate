@@ -11,11 +11,15 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage(function(payload) {
-  const title = payload.notification.title;
+  const title = payload.notification.title || "🏃 PaceClimate";
+  const body = payload.notification.body || "Time for a run!";
   const options = {
-    body: payload.notification.body,
+    body: body,
     icon: "/static/icon-192.png",
     badge: "/static/icon-192.png",
+    vibrate: [200, 100, 200],
+    tag: "paceclimate-" + Date.now(),
+    requireInteraction: true,
   };
   self.registration.showNotification(title, options);
 });
