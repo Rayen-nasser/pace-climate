@@ -369,6 +369,10 @@
           autoLocate();
           loadScheduled();
           initFCM();
+          if (window.location.search.includes("log=1")) {
+            document.getElementById("log-run-form").classList.remove("hidden");
+            history.replaceState(null, "", "/");
+          }
         }).catch(function() { showLogin(); });
         return;
       }
