@@ -12,7 +12,8 @@ from sqlalchemy.orm import Session
 from .weather import fetch_forecast, fetch_historical_weather
 from .scoring import score_day, TIME_PREFS
 from .database import get_db, init_db
-from .history import log_run, get_history, get_run_count, update_run_rating
+from .history import log_run, get_history, get_run_count, update_run_rating, get_training_load, compute_recovery
+from .models import UserGoal
 from .trainer import train_model, predict_score, _get_user_averages, TOUGH_REASONS
 from .chat import answer_question
 from .auth import get_current_user, register_with_password, login_with_password, login_with_google
@@ -198,7 +199,46 @@ async def api_rate_run(
 @app.get("/api/stats")
 async def api_stats(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     count = get_run_count(db, user.id)
-    return {"run_count": count, "min_runs": 20, "ready_for_ml": count >= 20}
+    week_km, week_cnt, month_km, month_cnt = get_training_load(db, user.id)
+    goal = db.query(UserGoal).filter_by(user_id=user.id).first()
+    return {
+        "run_count": count, "min_runs": 20, "ready_for_ml": count >= 20,
+        "week_km": round(week_km, 1), "week_runs": week_cnt,
+        "month_km": round(month_km, 1), "month_runs": month_cnt,
+        "goal_week_km": goal.weekly_distance_km if goal else 0,
+        "goal_week_runs": goal.weekly_runs if goal else 0,
+    }
+
+
+@app.get("/api/wellness")
+async def api_wellness(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return compute_recovery(db, user.id)
+
+
+@app.put("/api/goals")
+async def api_set_goals(
+    weekly_distance_km: float = Query(0),
+    weekly_runs: int = Query(0),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    goal = db.query(UserGoal).filter_by(user_id=user.id).first()
+    if goal:
+        goal.weekly_distance_km = weekly_distance_km
+        goal.weekly_runs = weekly_runs
+    else:
+        goal = UserGoal(user_id=user.id, weekly_distance_km=weekly_distance_km, weekly_runs=weekly_runs)
+        db.add(goal)
+    db.commit()
+    return {"weekly_distance_km": weekly_distance_km, "weekly_runs": weekly_runs}
+
+
+@app.get("/api/goals")
+async def api_get_goals(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    goal = db.query(UserGoal).filter_by(user_id=user.id).first()
+    if goal:
+        return {"weekly_distance_km": goal.weekly_distance_km, "weekly_runs": goal.weekly_runs}
+    return {"weekly_distance_km": 0, "weekly_runs": 0}
 
 
 @app.get("/api/averages")

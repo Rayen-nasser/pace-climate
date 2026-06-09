@@ -1,4 +1,5 @@
 import httpx
+import asyncio
 
 BASE_URL = "https://api.open-meteo.com/v1/forecast"
 
@@ -14,6 +15,8 @@ DAILY_PARAMS = [
     "wind_gusts_10m_max",
     "sunrise",
     "sunset",
+    "uv_index_max",
+    "dew_point_2m_max",
 ]
 
 WMO_CODES = {
@@ -53,24 +56,53 @@ def weather_description(code):
 
 
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
+AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 
-async def fetch_historical_weather(lat, lon, date_str):
-    """Fetch weather for a specific past date (for run logging)."""
+
+async def fetch_air_quality(lat, lon, start_date, end_date):
     params = {
         "latitude": lat,
         "longitude": lon,
-        "start_date": date_str,
-        "end_date": date_str,
-        "daily": "temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,precipitation_probability_max,weather_code,wind_speed_10m_max",
+        "daily": "european_aqi",
         "timezone": "auto",
+        "start_date": start_date,
+        "end_date": end_date,
     }
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(ARCHIVE_URL, params=params, timeout=10)
-        if resp.status_code != 200:
-            return {}
-        data = resp.json()
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(AIR_QUALITY_URL, params=params, timeout=10)
+            if resp.status_code != 200:
+                return {}
+            data = resp.json()
+        daily = data.get("daily", {})
+        times = daily.get("time", [])
+        aqi_vals = daily.get("european_aqi", [])
+        return {times[i]: aqi_vals[i] for i in range(len(times)) if aqi_vals[i] is not None}
+    except Exception:
+        return {}
 
-    daily = data.get("daily", {})
+
+async def fetch_historical_weather(lat, lon, date_str):
+    async def _weather():
+        params = {
+            "latitude": lat,
+            "longitude": lon,
+            "start_date": date_str,
+            "end_date": date_str,
+            "daily": "temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,precipitation_probability_max,weather_code,wind_speed_10m_max,uv_index_max,dew_point_2m_max",
+            "timezone": "auto",
+        }
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(ARCHIVE_URL, params=params, timeout=10)
+            if resp.status_code != 200:
+                return {}
+            return resp.json()
+
+    weather_task = _weather()
+    aqi_task = fetch_air_quality(lat, lon, date_str, date_str)
+    data, aqi_data = await asyncio.gather(weather_task, aqi_task)
+
+    daily = data.get("daily", {}) if data else {}
     if not daily.get("time"):
         return {}
 
@@ -83,7 +115,11 @@ async def fetch_historical_weather(lat, lon, date_str):
         "precip_prob": daily.get("precipitation_probability_max", [0])[0] or 0,
         "wind_max": daily["wind_speed_10m_max"][0],
         "weather_code": daily["weather_code"][0],
+        "uv_index": daily.get("uv_index_max", [0])[0] or 0,
+        "dew_point": daily.get("dew_point_2m_max", [0])[0] or 0,
+        "aqi": aqi_data.get(date_str, 0) or 0,
     }
+
 
 async def fetch_forecast(lat, lon, forecast_days=7):
     params = {
@@ -99,10 +135,19 @@ async def fetch_forecast(lat, lon, forecast_days=7):
         data = resp.json()
 
     daily = data.get("daily", {})
+    if not daily.get("time"):
+        return []
+
+    start = daily["time"][0]
+    end = daily["time"][-1]
+
+    aqi_data = await fetch_air_quality(lat, lon, start, end)
+
     days = []
-    for i in range(len(daily.get("time", []))):
+    for i in range(len(daily["time"])):
+        date = daily["time"][i]
         days.append({
-            "date": daily["time"][i],
+            "date": date,
             "temp_max": daily["temperature_2m_max"][i],
             "temp_min": daily["temperature_2m_min"][i],
             "apparent_max": daily["apparent_temperature_max"][i],
@@ -115,5 +160,8 @@ async def fetch_forecast(lat, lon, forecast_days=7):
             "wind_gust_max": daily["wind_gusts_10m_max"][i],
             "sunrise": daily["sunrise"][i],
             "sunset": daily["sunset"][i],
+            "uv_index": daily.get("uv_index_max", [0])[i] or 0,
+            "dew_point": daily.get("dew_point_2m_max", [0])[i] or 0,
+            "aqi": aqi_data.get(date, 0) or 0,
         })
     return days

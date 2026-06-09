@@ -57,6 +57,86 @@ def update_run_rating(db: Session, user_id: int, run_id: int, rating: int, tough
     return log
 
 
+def get_training_load(db: Session, user_id: int):
+    from datetime import datetime, timedelta
+    today = datetime.now()
+    week_ago = today - timedelta(days=7)
+    month_ago = today - timedelta(days=30)
+    logs = db.query(RunLog).filter_by(user_id=user_id).order_by(RunLog.date.desc()).all()
+    week_dist = sum(l.distance_km or 0 for l in logs if l.date and _parse_date(l.date) >= week_ago) if logs else 0
+    week_cnt = sum(1 for l in logs if l.date and _parse_date(l.date) >= week_ago) if logs else 0
+    month_dist = sum(l.distance_km or 0 for l in logs if l.date and _parse_date(l.date) >= month_ago) if logs else 0
+    month_cnt = sum(1 for l in logs if l.date and _parse_date(l.date) >= month_ago) if logs else 0
+    return week_dist, week_cnt, month_dist, month_cnt
+
+
+def _parse_date(s):
+    from datetime import datetime
+    try:
+        return datetime.strptime(s, "%Y-%m-%d")
+    except (ValueError, TypeError):
+        return datetime.min
+
+
+def compute_recovery(db: Session, user_id: int):
+    from datetime import datetime, timedelta
+    logs = db.query(RunLog).filter_by(user_id=user_id).order_by(RunLog.date.desc()).limit(3).all()
+    if not logs:
+        return {"status": "ready", "reason": "No recent runs — you're fresh!"}
+
+    last = logs[0]
+    recent_7d = [l for l in logs if l.date and _parse_date(l.date) >= datetime.now() - timedelta(days=7)]
+    week_km = sum(l.distance_km or 0 for l in recent_7d)
+
+    reasons = []
+    score = 0
+
+    # sleep
+    if last.sleep_hours is not None:
+        if last.sleep_hours < 6:
+            reasons.append("low sleep")
+            score += 2
+        elif last.sleep_hours < 7:
+            reasons.append("slightly tired")
+            score += 1
+
+    # soreness
+    if last.muscle_soreness is not None and last.muscle_soreness >= 4:
+        reasons.append("high soreness")
+        score += 2
+    elif last.muscle_soreness is not None and last.muscle_soreness >= 3:
+        reasons.append("some soreness")
+        score += 1
+
+    # rpe
+    if last.perceived_effort is not None and last.perceived_effort >= 8:
+        reasons.append("hard effort")
+        score += 2
+    elif last.perceived_effort is not None and last.perceived_effort >= 6:
+        reasons.append("moderate effort")
+        score += 1
+
+    # weekly volume
+    if week_km > 50:
+        reasons.append("heavy week")
+        score += 2
+    elif week_km > 30:
+        reasons.append("moderate week")
+        score += 1
+
+    if score >= 4:
+        status = "rest_day"
+        reason = f"High load: {', '.join(reasons)}. Take a rest day."
+    elif score >= 2:
+        status = "easy_day"
+        reason = f"Easy day: {', '.join(reasons)}. Light run or rest."
+    else:
+        status = "ready"
+        reason = "You're well recovered. Go for it!"
+
+    return {"status": status, "reason": reason, "week_km": round(week_km, 1)}
+
+
 def get_recent_runs(db: Session, user_id: int, limit=5):
     return (
         db.query(RunLog)

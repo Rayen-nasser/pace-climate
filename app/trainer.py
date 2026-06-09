@@ -17,6 +17,7 @@ SESSION_FIELDS = ["run_type_easy", "run_type_tempo", "run_type_interval", "run_t
                   "perceived_effort", "pre_run_energy", "sleep_hours", "muscle_soreness"]
 
 DERIVATIVE_FIELDS = ["days_since_last_run", "recent_7d_distance", "recent_7d_run_count", "heat_index"]
+ENV_FIELDS = ["aqi", "uv_index", "dew_point"]
 
 
 def _get_user_avg(db: Session, user_id: int, field, default):
@@ -161,13 +162,17 @@ def _extract_features(run_log, user_averages=None, prev_log=None, recent_7d_logs
         avg_hr or 140,
         max_hr or 175,
         elev if elev is not None else 0,
-    ] + reason_flags + run_type_flags + [pee, ene, sle, sor] + [days_since, recent_7d_dist, recent_7d_cnt, heat_idx]
+    ] + reason_flags + run_type_flags + [pee, ene, sle, sor] + [days_since, recent_7d_dist, recent_7d_cnt, heat_idx] + [
+        ws.get("aqi", 0) or 0,
+        ws.get("uv_index", 0) or 0,
+        ws.get("dew_point", 0) or 0,
+    ]
 
 
 FEATURE_NAMES = [
     "temp_max", "temp_min", "precip_sum", "precip_prob", "wind_max", "weather_code",
     "distance_km", "duration_min", "pace", "avg_hr", "max_hr", "elevation_gain",
-] + TOUGH_REASONS + SESSION_FIELDS + DERIVATIVE_FIELDS
+] + TOUGH_REASONS + SESSION_FIELDS + DERIVATIVE_FIELDS + ENV_FIELDS
 
 
 def train_model(db: Session, user_id: int):
@@ -249,6 +254,7 @@ def predict_score(db: Session, user_id: int, day: dict, planned_distance=None, p
     + [0] * 6  # run_type flags — all zero for future
     + [avg.get("perceived_effort", 5), avg.get("pre_run_energy", 3), avg.get("sleep_hours", 7), avg.get("muscle_soreness", 2)]
     + [avg.get("days_since_last_run", 2), avg.get("recent_7d_distance", 15), avg.get("recent_7d_run_count", 3), heat_idx]
+    + [day.get("aqi", 0) or 0, day.get("uv_index", 0) or 0, day.get("dew_point", 0) or 0]
     ])
 
     pred = model.predict(features)[0]

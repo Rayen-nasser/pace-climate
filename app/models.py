@@ -63,3 +63,14 @@ class MlModel(Base):
     model_blob = Column(PickleType, nullable=True)
     trained_at = Column(DateTime, nullable=True)
     run_count = Column(Integer, default=0)
+
+
+class UserGoal(Base):
+    __tablename__ = "user_goals"
+
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    weekly_distance_km = Column(Float, default=0)
+    weekly_runs = Column(Integer, default=0)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User")

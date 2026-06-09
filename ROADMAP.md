@@ -1,34 +1,28 @@
 # PaceClimate Roadmap
 
 ## Phase A ✓ — Session Feedback (add to model + log form)
-Add pre-run context fields so the model knows *why* a run was tough beyond weather.
-
 - [x] `sleep_hours` (float) — hours slept before run
 - [x] `pre_run_energy` (int 1-5) — subjective energy level
 - [x] `muscle_soreness` (int 1-5) — subjective soreness
 - [x] `perceived_effort` / RPE (int 1-10) — how hard it felt
 - [x] `run_type` (easy/tempo/interval/long_run/race/recovery)
 
-*Impact:* +5 features (25→30). Fixes model's biggest blind spot.
-
-## Phase B ✓ — Derivative Features (computed from existing data, zero extra input)
-
+## Phase B ✓ — Derivative Features (computed from existing data)
 - [x] `days_since_last_run` — rest/recovery indicator
 - [x] `recent_7d_distance` — training load (km)
 - [x] `recent_7d_run_count` — training frequency
-- [x] `heat_index` — feels-like temp offset (uses apparent_temp from Open-Meteo)
+- [x] `heat_index` — feels-like temp offset
 
-*Impact:* +4 features (30→34). Free signals from data you already have.
+## Phase C ✓ — Better Environmental Data
+- [x] AQI (Air Quality Index) — fetched from Open-Meteo Air Quality API, shown in forecast cards
+- [x] UV index — added to weather params, shown in forecast cards
+- [x] Dew point — added to weather params, used as ML feature
 
-## Phase C — Better Environmental Data
+*Features: 34→37*
 
-- [ ] Add AQI (Air Quality Index) — free from Open-Meteo Air Quality API
-- [ ] Add UV index — free from Open-Meteo
-- [ ] Add dew point — more accurate discomfort measure than humidity alone
+## Phase D ✓ — Athlete Services
+- [x] Recovery recommendation — banner analyzes sleep/soreness/RPE/volume → "rest day" / "easy day" / "ready"
+- [x] Training load display — 7d volume + runs, monthly volume in header stats bar
+- [x] Goal setting — editable weekly km/runs targets with progress % in stats bar
 
-## Phase D — Athlete Services
-
-- [ ] Recovery recommendation: "You ran hard + slept 5h → take rest day"
-- [ ] Training load dashboard: 7d volume trends, monthly comparison
-- [ ] Goal setting: target distance / frequency per week with progress
-- [ ] Route suggestion: flat vs hilly based on energy + weather
+*Pending:* Route suggestion (flat vs hilly based on energy + weather)
