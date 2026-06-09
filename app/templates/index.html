@@ -227,7 +227,10 @@
                 <span class="text-base">🔔</span>
                 <h3 class="text-xs font-semibold text-gray-200">My Reminders</h3>
               </div>
-              <span id="reminder-count" class="text-[10px] text-gray-500"></span>
+              <div class="flex items-center gap-2">
+                <span id="reminder-count" class="text-[10px] text-gray-500"></span>
+                <button id="test-notif-btn" class="text-[10px] text-gray-500 hover:text-emerald-400 transition px-2 py-0.5 rounded hover:bg-gray-800">Test</button>
+              </div>
             </div>
             <div id="reminders-list" class="space-y-2"></div>
           </div>
@@ -481,6 +484,13 @@
 
     document.getElementById("time-picker-save").addEventListener("click", confirmReminder);
     document.getElementById("time-picker-cancel").addEventListener("click", function() { closeTimePicker({ target: null, currentTarget: null }); });
+    document.getElementById("test-notif-btn").addEventListener("click", function() {
+      if (!FCM_ENABLED) { showToast("FCM not configured.", "error"); return; }
+      apiFetch("/api/notifications/test", {method: "POST"}).then(function(d) {
+        if (d && d.ok) showToast("✅ Test notification sent! Check your device.", "success");
+        else showToast("❌ FCM send failed — check credentials.", "error");
+      }).catch(function() { showToast("❌ Test failed.", "error"); });
+    });
     document.querySelectorAll(".time-preset").forEach(function(btn) {
       btn.addEventListener("click", function() {
         document.getElementById("time-picker-input").value = btn.dataset.time;

@@ -340,3 +340,9 @@ async def api_chat(
     run_count = get_run_count(db, user.id)
     answer = answer_question(q, scored, run_count)
     return {"answer": answer}
+
+
+@app.post("/api/notifications/test")
+async def api_test_notification(user: User = Depends(get_current_user)):
+    ok = send_push(user.id, "🏃 Test Notification", "Reminders are working! You'll get notified at your scheduled time.")
+    return {"ok": ok}

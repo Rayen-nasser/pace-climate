@@ -1,6 +1,6 @@
 import os
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime
 
 import firebase_admin
 from firebase_admin import credentials, messaging
@@ -47,7 +47,7 @@ async def notification_checker_loop():
     while True:
         try:
             db = SessionLocal()
-            now = datetime.now(timezone.utc)
+            now = datetime.now()
             today = now.strftime("%Y-%m-%d")
             current_time = now.strftime("%H:%M")
             due = db.query(ScheduledNotification).filter(
