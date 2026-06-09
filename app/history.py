@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from .models import RunLog
 
 
-def log_run(db: Session, user_id: int, date_str: str, distance_km: float, duration_min: int, rating: int, notes: str = None, weather_snapshot: dict = None, avg_hr: int = None, max_hr: int = None, elevation_gain: float = None):
+def log_run(db: Session, user_id: int, date_str: str, distance_km: float, duration_min: int, rating: int, notes: str = None, weather_snapshot: dict = None, avg_hr: int = None, max_hr: int = None, elevation_gain: float = None, tough_reasons: str = None):
     log = RunLog(
         user_id=user_id,
         date=date_str,
@@ -18,6 +18,7 @@ def log_run(db: Session, user_id: int, date_str: str, distance_km: float, durati
         elevation_gain=elevation_gain,
         notes=notes,
         weather_snapshot=json.dumps(weather_snapshot) if weather_snapshot else None,
+        tough_reasons=tough_reasons,
     )
     db.add(log)
     db.commit()
@@ -37,6 +38,18 @@ def get_history(db: Session, user_id: int, limit=50):
 
 def get_run_count(db: Session, user_id: int):
     return db.query(RunLog).filter_by(user_id=user_id).count()
+
+
+def update_run_rating(db: Session, user_id: int, run_id: int, rating: int, tough_reasons: str = None):
+    log = db.query(RunLog).filter_by(id=run_id, user_id=user_id).first()
+    if not log:
+        return None
+    log.rating = rating
+    if tough_reasons is not None:
+        log.tough_reasons = tough_reasons
+    db.commit()
+    db.refresh(log)
+    return log
 
 
 def get_recent_runs(db: Session, user_id: int, limit=5):

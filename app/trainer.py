@@ -11,6 +11,8 @@ from .models import RunLog, MlModel
 
 MIN_RUNS_FOR_TRAINING = 20
 
+TOUGH_REASONS = ["rain", "wind", "heat", "humidity", "tired", "injury", "hills", "stress"]
+
 
 def _get_user_avg(db: Session, user_id: int, field, default):
     val = db.query(func.avg(getattr(RunLog, field))).filter(
@@ -61,6 +63,16 @@ def _resolve_effort(db: Session, user_id: int, planned_distance=None, planned_du
     return dist, dur, pace
 
 
+def _parse_tough_reasons(run_log):
+    reasons = set()
+    if run_log.tough_reasons:
+        try:
+            reasons = set(json.loads(run_log.tough_reasons))
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return reasons
+
+
 def _extract_features(run_log, user_averages=None):
     ws = json.loads(run_log.weather_snapshot) if run_log.weather_snapshot else {}
     dist = run_log.distance_km or 0
@@ -75,6 +87,9 @@ def _extract_features(run_log, user_averages=None):
         max_hr = max_hr or user_averages.get("max_hr")
         elev = elev if elev is not None else user_averages.get("elevation_gain")
 
+    reasons = _parse_tough_reasons(run_log)
+    reason_flags = [1 if r in reasons else 0 for r in TOUGH_REASONS]
+
     return [
         ws.get("temp_max", 25),
         ws.get("temp_min", 15),
@@ -88,13 +103,13 @@ def _extract_features(run_log, user_averages=None):
         avg_hr or 140,
         max_hr or 175,
         elev if elev is not None else 0,
-    ]
+    ] + reason_flags
 
 
 FEATURE_NAMES = [
     "temp_max", "temp_min", "precip_sum", "precip_prob", "wind_max", "weather_code",
     "distance_km", "duration_min", "pace", "avg_hr", "max_hr", "elevation_gain",
-]
+] + TOUGH_REASONS
 
 
 def train_model(db: Session, user_id: int):
@@ -158,7 +173,7 @@ def predict_score(db: Session, user_id: int, day: dict, planned_distance=None, p
         avg["avg_hr"],
         avg["max_hr"],
         avg["elevation_gain"],
-    ]])
+    ] + [0] * len(TOUGH_REASONS)])
 
     pred = model.predict(features)[0]
     return max(0, min(100, pred * 20))

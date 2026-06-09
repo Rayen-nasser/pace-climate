@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, Request, Depends, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 from .weather import fetch_forecast, fetch_historical_weather
 from .scoring import score_day, TIME_PREFS
 from .database import get_db, init_db
-from .history import log_run, get_history, get_run_count
-from .trainer import train_model, predict_score, _get_user_averages
+from .history import log_run, get_history, get_run_count, update_run_rating
+from .trainer import train_model, predict_score, _get_user_averages, TOUGH_REASONS
 from .chat import answer_question
 from .auth import get_current_user, register_with_password, login_with_password, login_with_google
 from .models import User
@@ -126,13 +126,14 @@ async def api_log_run(
     avg_hr: int = Query(None),
     max_hr: int = Query(None),
     elevation_gain: float = Query(None),
+    tough_reasons: str = Query(None),
     lat: float = Query(34.425),
     lon: float = Query(8.784),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     weather = await fetch_historical_weather(lat, lon, date)
-    log = log_run(db, user.id, date, distance_km, duration_min, rating, notes, weather, avg_hr, max_hr, elevation_gain)
+    log = log_run(db, user.id, date, distance_km, duration_min, rating, notes, weather, avg_hr, max_hr, elevation_gain, tough_reasons)
     count = get_run_count(db, user.id)
     trained = False
     if count >= 20 and count % 5 == 0:
@@ -156,12 +157,32 @@ async def api_get_runs(user: User = Depends(get_current_user), db: Session = Dep
                 "max_hr": r.max_hr,
                 "elevation_gain": r.elevation_gain,
                 "notes": r.notes,
+                "tough_reasons": r.tough_reasons,
                 "created_at": str(r.created_at),
             }
             for r in runs
         ],
         "count": len(runs),
     }
+
+
+@app.patch("/api/runs/{run_id}/rate")
+async def api_rate_run(
+    run_id: int,
+    rating: int = Query(...),
+    tough_reasons: str = Query(None),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    log = update_run_rating(db, user.id, run_id, rating, tough_reasons)
+    if not log:
+        return JSONResponse(status_code=404, content={"detail": "Run not found"})
+    count = get_run_count(db, user.id)
+    trained = False
+    if count >= 20 and count % 5 == 0:
+        train_model(db, user.id)
+        trained = True
+    return {"id": log.id, "rating": log.rating, "run_count": count, "model_trained": trained}
 
 
 @app.get("/api/stats")

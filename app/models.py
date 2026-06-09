@@ -45,6 +45,7 @@ class RunLog(Base):
     elevation_gain = Column(Float, nullable=True)
     weather_snapshot = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
+    tough_reasons = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="run_logs")
