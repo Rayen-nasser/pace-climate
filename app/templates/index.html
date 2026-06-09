@@ -759,11 +759,11 @@
                 '<div>' +
                   '<div class="text-sm font-medium text-gray-200">' + day.weather_desc + '</div>' +
                   '<div class="flex gap-3 mt-1 text-xs text-gray-400">' +
-                    '<span>🌡️ ' + day.temp_used + '°C</span>' +
-                    '<span>💧 ' + day.precip_prob + '%</span>' +
-                    '<span>💨 ' + day.wind_max + '</span>' +
-                    (day.aqi ? '<span class="aqi-badge ' + (day.aqi > 100 ? 'text-red-400' : day.aqi > 50 ? 'text-yellow-400' : 'text-emerald-400') + '">🌬️' + day.aqi + '</span>' : '') +
-                    (day.uv_index > 0 ? '<span class="' + (day.uv_index > 6 ? 'text-red-400' : day.uv_index > 3 ? 'text-yellow-400' : 'text-gray-400') + '">☀️' + day.uv_index + '</span>' : '') +
+                    '<span title="Temperature">' + day.temp_used + '°C</span>' +
+                    '<span title="Rain probability">💧' + day.precip_prob + '%</span>' +
+                    '<span title="Wind speed">💨' + day.wind_max + ' km/h</span>' +
+                    (day.aqi ? '<span title="Air Quality Index: 0-50 Good · 51-100 Moderate · 101+ Unhealthy" class="aqi-badge ' + (day.aqi > 100 ? 'text-red-400' : day.aqi > 50 ? 'text-yellow-400' : 'text-emerald-400') + '">🌬️AQI' + day.aqi + '</span>' : '') +
+                    (day.uv_index > 0 ? '<span title="UV Index: 0-2 Low · 3-5 Moderate · 6-7 High · 8-10 Very High · 11+ Extreme" class="' + (day.uv_index > 6 ? 'text-red-400' : day.uv_index > 3 ? 'text-yellow-400' : 'text-gray-400') + '">☀️UV' + day.uv_index + '</span>' : '') +
                   '</div>' +
                 '</div>' +
               '</div>' +
