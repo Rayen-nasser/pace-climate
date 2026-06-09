@@ -412,8 +412,8 @@
         var date = btn.dataset.date;
         var on = isScheduled(date);
         btn.innerHTML = on ? "🔔" : "🔕";
-        btn.className = "bell-btn text-xs transition-all duration-200 " + (on ? "opacity-100" : "opacity-40 hover:opacity-80");
-        btn.title = on ? "Remove reminder" : "Remind me on this day";
+        btn.className = "bell-btn text-xs transition-all duration-200 ml-1 " + (on ? "text-emerald-400" : "text-gray-500 hover:text-emerald-400");
+        btn.title = on ? "Remove reminder" : "Notify me on this day";
       });
     }
 
@@ -839,7 +839,7 @@
         var circumference = 2 * Math.PI * 28;
         var offset = circumference - (pct / 100) * circumference;
 
-        var bell = FCM_ENABLED ? '<button class="bell-btn text-xs opacity-40 hover:opacity-80 transition-all duration-200" data-date="' + day.date + '" data-label="' + day.label + '" data-temp="' + day.temp_used + '" data-desc="' + day.weather_desc + '" title="Remind me on this day">🔕</button>' : '';
+        var bell = FCM_ENABLED ? '<button class="bell-btn text-xs text-gray-500 hover:text-emerald-400 transition-all duration-200 ml-1" data-date="' + day.date + '" data-label="' + day.label + '" data-temp="' + day.temp_used + '" data-desc="' + day.weather_desc + '" title="Notify me on this day">🔕</button>' : '';
         card.innerHTML =
           '<div class="flex items-start justify-between">' +
             '<div class="flex-1">' +
