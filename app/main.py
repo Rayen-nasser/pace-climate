@@ -5,11 +5,11 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
-from .config import DEFAULT_LAT, DEFAULT_LON, DEFAULT_CITY, GOOGLE_CLIENT_ID, FCM_API_KEY, FCM_APP_ID, FCM_SENDER_ID
-from .database import init_db
-from .scoring import TIME_PREFS
-from .notifications import init_firebase, notification_checker_loop
-from .api import auth, runs, forecast, goals, wellness, notifications as notif_api, chat, averages
+from .core.config import DEFAULT_LAT, DEFAULT_LON, DEFAULT_CITY, GOOGLE_CLIENT_ID, FCM_API_KEY, FCM_APP_ID, FCM_SENDER_ID
+from .core.database import init_db
+from .services.scoring import TIME_PREFS
+from .services.notifications import init_firebase, notification_checker_loop
+from .api.v1 import auth, runs, forecast, goals, wellness, notifications as notif_api, chat, averages
 
 app = FastAPI(title="PaceClimate", version="1.0.0",
               description="Smart running weather forecasts with personalized ML scoring, push notifications, and AI coaching.",

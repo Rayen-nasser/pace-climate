@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..auth import get_current_user
-from ..models import User, UserGoal
-from ..history import get_run_count, get_training_load, compute_recovery
+from ...core.database import get_db
+from ...services.auth import get_current_user
+from ...models import User, UserGoal
+from ...services.run_history import get_run_count, get_training_load, compute_recovery
 
 router = APIRouter(tags=["wellness"])
 

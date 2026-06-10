@@ -10,4 +10,4 @@ venv/
 *.pkl
 .DS_Store
 paceclimate-f395b-firebase-adminsdk-fbsvc-08c5dab788.json
-test_*.py
+/test_*.py

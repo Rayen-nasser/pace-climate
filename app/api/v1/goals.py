@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..auth import get_current_user
-from ..models import User, UserGoal
+from ...core.database import get_db
+from ...services.auth import get_current_user
+from ...models import User, UserGoal
 
 router = APIRouter(tags=["goals"])
 

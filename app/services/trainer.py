@@ -7,7 +7,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from .models import RunLog, MlModel
+from ..models import RunLog, MlModel
 
 MIN_RUNS_FOR_TRAINING = 20
 

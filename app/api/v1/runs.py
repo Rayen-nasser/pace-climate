@@ -2,12 +2,12 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..auth import get_current_user
-from ..models import User
-from ..history import log_run, get_history, get_run_count, update_run_rating
-from ..trainer import train_model
-from ..weather import fetch_historical_weather
+from ...core.database import get_db
+from ...services.auth import get_current_user
+from ...models import User
+from ...services.run_history import log_run, get_history, get_run_count, update_run_rating
+from ...services.trainer import train_model
+from ...services.weather import fetch_historical_weather
 
 router = APIRouter(tags=["runs"])
 

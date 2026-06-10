@@ -8,8 +8,8 @@ from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_requests
 from sqlalchemy.orm import Session
 
-from .database import get_db
-from .models import User
+from ..core.database import get_db
+from ..models import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from ..config import DEFAULT_LAT, DEFAULT_LON
-from ..database import get_db
-from ..auth import get_current_user
-from ..models import User
-from ..weather import fetch_forecast
-from ..scoring import score_day
-from ..history import get_run_count
-from ..chat import answer_question
+from ...core.config import DEFAULT_LAT, DEFAULT_LON
+from ...core.database import get_db
+from ...services.auth import get_current_user
+from ...models import User
+from ...services.weather import fetch_forecast
+from ...services.scoring import score_day
+from ...services.run_history import get_run_count
+from ...services.chat import answer_question
 
 router = APIRouter(tags=["chat"])
 

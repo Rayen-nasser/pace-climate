@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..auth import get_current_user
-from ..models import User
-from ..trainer import _get_user_averages
+from ...core.database import get_db
+from ...services.auth import get_current_user
+from ...models import User
+from ...services.trainer import _get_user_averages
 
 router = APIRouter(tags=["averages"])
 

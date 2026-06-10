@@ -6,8 +6,8 @@ import firebase_admin
 from firebase_admin import credentials, messaging
 from sqlalchemy.orm import Session
 
-from .models import DeviceToken, ScheduledNotification, RunLog, UserGoal
-from .database import SessionLocal
+from ..models import DeviceToken, ScheduledNotification, RunLog, UserGoal
+from ..core.database import SessionLocal
 
 
 def init_firebase():

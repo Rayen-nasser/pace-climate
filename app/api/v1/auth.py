@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..auth import register_with_password, login_with_password, login_with_google, get_current_user
-from ..models import User
+from ...core.database import get_db
+from ...services.auth import register_with_password, login_with_password, login_with_google, get_current_user
+from ...models import User
 
 router = APIRouter(tags=["auth"])
 

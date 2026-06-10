@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from ..config import DEFAULT_LAT, DEFAULT_LON
-from ..database import get_db
-from ..auth import get_current_user
-from ..models import User
-from ..weather import fetch_forecast
-from ..scoring import score_day, TIME_PREFS
-from ..trainer import predict_score
-from ..history import get_run_count
+from ...core.config import DEFAULT_LAT, DEFAULT_LON
+from ...core.database import get_db
+from ...services.auth import get_current_user
+from ...models import User
+from ...services.weather import fetch_forecast
+from ...services.scoring import score_day, TIME_PREFS
+from ...services.trainer import predict_score
+from ...services.run_history import get_run_count
 
 router = APIRouter(tags=["forecast"])
 
