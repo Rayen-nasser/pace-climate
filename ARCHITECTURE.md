@@ -1,81 +1,146 @@
 # PaceClimate Architecture
 
 ## Tech Stack
-- **Backend**: Python + FastAPI
+- **Backend**: Python + FastAPI (v1.0.0)
 - **Frontend**: HTML + Tailwind CSS (served via Jinja2)
-- **Weather Data**: Open-Meteo (free, no API key)
+- **Weather Data**: Open-Meteo + Open-Meteo Air Quality (free, no API key)
 - **Database**: SQLite + SQLAlchemy (PostgreSQL before deploy)
-- **ML**: scikit-learn (Random Forest)
+- **ML**: scikit-learn (Random Forest Regressor, 37 features)
+- **Push**: Firebase Cloud Messaging (FCM)
+- **AI Coach**: Groq API (Llama 3.1 8B)
+- **Auth**: JWT (python-jose) + bcrypt / Google Sign-In (GSI)
 
 ## Project Structure
 ```
 PaceClimate/
 ├── app/
 │   ├── __init__.py
-│   ├── main.py           # FastAPI routes + server
-│   ├── weather.py        # Open-Meteo API client
-│   ├── scoring.py        # Rule-based + ML scoring
-│   ├── database.py       # SQLAlchemy engine + session
-│   ├── models.py         # DB schema (users, run_logs)
-│   ├── history.py        # Log + query runs
-│   ├── trainer.py        # Per-user ML model training
-│   ├── chat.py           # Simple Q&A engine
+│   ├── main.py              # App factory, middleware, startup, web routes
+│   ├── config.py             # Environment variables + defaults
+│   ├── database.py           # SQLAlchemy engine + session
+│   ├── models.py             # DB schema (User, RunLog, MlModel, etc.)
+│   ├── schemas.py            # Pydantic models for API I/O + docs
+│   ├── auth.py               # JWT helpers, password hashing, Google verify
+│   ├── weather.py            # Open-Meteo API client (weather + AQI)
+│   ├── scoring.py            # Rule-based + ML scoring logic
+│   ├── history.py            # Run log CRUD + training load + recovery
+│   ├── trainer.py            # Per-user ML model (37 features)
+│   ├── chat.py               # Groq-powered Q&A engine
+│   ├── notifications.py      # FCM init, push send, background checker
+│   ├── api/                  # Versioned API routers
+│   │   ├── __init__.py
+│   │   ├── auth.py           # POST /auth/register, /auth/login, /auth/google, GET /me
+│   │   ├── runs.py           # POST/GET /runs, PATCH /runs/{id}/rate
+│   │   ├── forecast.py       # GET /forecast (7 days, ML + rules)
+│   │   ├── goals.py          # PUT/GET /goals
+│   │   ├── wellness.py       # GET /wellness, GET /stats
+│   │   ├── notifications.py  # register, schedule, list, delete, test
+│   │   ├── chat.py           # GET /chat (AI coach)
+│   │   └── averages.py       # GET /averages
+│   ├── static/               # Static assets (SW, icons)
 │   └── templates/
-│       └── index.html    # Dashboard
-├── data/                 # DB + model files (gitignored)
+│       └── index.html        # Single-page dashboard
+├── tests/
+│   ├── conftest.py           # Fixtures (test client, auth, DB)
+│   └── test_api.py           # API endpoint tests + OpenAPI spec validation
+├── data/                     # DB + model files (gitignored)
 ├── ARCHITECTURE.md
 ├── requirements.txt
-└── .gitignore
+└── ROADMAP.md
 ```
 
-## Multi-User Architecture
-All tables have `user_id`. Currently hardcoded to `CURRENT_USER_ID = 1`.
-When auth is added later, swap for real user ID — zero refactoring needed.
+## API Endpoints (v1)
 
-### Schema
+All API endpoints are prefixed with `/api/v1`. Auto-documented at `/docs` (Swagger) and `/redoc` (ReDoc).
+
+### Auth
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/auth/register` | Register with email + password |
+| POST | `/auth/login` | Login, returns JWT token |
+| POST | `/auth/google` | Login with Google credential |
+| GET | `/me` | Get current user info |
+
+### Runs
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/runs` | Log a new run (weather + session feedback + tough reasons) |
+| GET | `/runs` | Get run history |
+| PATCH | `/runs/{id}/rate` | Update rating + tough reasons |
+
+### Forecast
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/forecast` | 7-day forecast with scores, AQI, UV, dew point |
+
+### Goals
+| Method | Path | Description |
+|--------|------|-------------|
+| PUT | `/goals` | Set weekly goals |
+| GET | `/goals` | Get current goals |
+
+### Wellness
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/wellness` | Recovery recommendation (rest/easy/ready) |
+| GET | `/stats` | Training stats + goal progress |
+
+### Notifications
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/notifications/register` | Register FCM device token |
+| POST | `/notifications/schedule` | Schedule a reminder (date + time) |
+| GET | `/notifications/scheduled` | List pending reminders |
+| DELETE | `/notifications/schedule/{id}` | Cancel a reminder |
+| POST | `/notifications/test` | Send test push |
+
+### Chat
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/chat` | Ask AI coach a question |
+
+### Averages
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/averages` | User's average run stats |
+
+## ML Feature Vector (37 features)
 ```
-users: id, username, password_hash, created_at
-user_preferences: user_id, lat, lon, time_pref, temp_min, temp_max
-run_logs: id, user_id, date, distance_km, duration_min, rating (1-5), weather_snapshot (JSON), notes, created_at
-ml_models: user_id (PK), model_blob (pickle), trained_at
+[temp_max, temp_min, precip_sum, precip_prob, wind_max, weather_code,
+ distance_km, duration_min, pace, avg_hr, max_hr, elevation_gain,
+ 8 tough_reasons (binary),
+ 6 run_type one-hot (easy, tempo, interval, long_run, race, recovery),
+ perceived_effort, pre_run_energy, sleep_hours, muscle_soreness,
+ days_since_last_run, recent_7d_distance, recent_7d_run_count, heat_index,
+ aqi, uv_index, dew_point]
 ```
 
 ## Key Design Notes
 
-### Before Deploy Checklist
-- [ ] Auth system (JWT + OAuth2PasswordBearer)
+### Authentication
+- JWT tokens with 30-day expiry, stored in localStorage
+- `Depends(get_current_user)` on all protected endpoints
+- Google Sign-In via GSI declarative mode (blocked: COOP issue)
+
+### Database
+- SQLite for development, PostgreSQL path via connection string swap
+- Schema changes require DB deletion (no Alembic migrations yet)
+
+### Push Notifications
+- Firebase Admin SDK (backend) ↔ FCM JS SDK v10 (frontend)
+- Background checker loop runs every 60s inside FastAPI
+- Service worker served dynamically with injected config
+
+### ML Training
+- Trains after 20 runs, retrains every 5 runs
+- Model stored as pickle blob in DB
+- Score = 30% rule-based + 70% ML prediction
+
+### Deployment Checklist
 - [ ] PostgreSQL instead of SQLite
-- [ ] Alembic migrations ready
-- [ ] Env vars for all config (`python-dotenv`)
-- [ ] CORS locked to your domain
-- [ ] Rate limiting on `/api/forecast` (60/min Open-Meteo limit)
-- [ ] HTTPS via reverse proxy (nginx/Caddy)
-- [ ] Model storage on filesystem/S3 (not DB blob)
-- [ ] Unit tests for scoring + API
-- [ ] Dockerfile for deployment
-
-### Auth Migration Path
-1. Add `app/auth.py` with register/login endpoints
-2. Use `passlib` + `bcrypt` for passwords
-3. Use FastAPI `Depends(get_current_user)` everywhere
-4. Replace `CURRENT_USER_ID = 1` with `user.id`
-
-### PostgreSQL Migration
-- Already using SQLAlchemy → change only the connection string
-- `sqlite:///data/paceclimate.db` → `postgresql://user:pass@host/db`
-- Use `alembic` for migrations
-- Use `asyncpg` driver for async
-
-### ML Model Storage
-- Currently: pickle blob in SQLite → fine for dev
-- Production: save `.pkl` to filesystem or S3, store path in DB
-- Consider `joblib` instead of pickle
-
-### Performance
-- Cache forecast responses (1-hour TTL)
-- Async model training via FastAPI `BackgroundTasks`
-- SQLAlchemy connection pooling (auto for PostgreSQL)
-
-### Multi-User Frontend
-- Current: single Jinja2 template → fine for 1 user
-- For multi-user: split to FastAPI backend + SPA frontend
+- [ ] Alembic migrations
+- [ ] CORS locked to domain
+- [ ] Rate limiting on `/api/v1/forecast` (60/min Open-Meteo limit)
+- [ ] HTTPS via reverse proxy
+- [ ] Model storage on filesystem/S3
+- [ ] Dockerfile

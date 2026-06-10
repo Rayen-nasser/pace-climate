@@ -363,7 +363,7 @@
     (function init() {
       var token = getToken();
       if (token) {
-        apiFetch("/api/me").then(function(u) {
+        apiFetch("/api/v1/me").then(function(u) {
           showDashboard(u.email);
           document.getElementById("run-date").value = new Date().toISOString().split("T")[0];
           autoLocate();
@@ -409,7 +409,7 @@
 
     function registerDeviceToken() {
       if (!fcmToken) return Promise.resolve();
-      return apiFetch("/api/notifications/register?token=" + encodeURIComponent(fcmToken) + "&platform=web", {method: "POST"}).catch(function() {});
+      return apiFetch("/api/v1/notifications/register?token=" + encodeURIComponent(fcmToken) + "&platform=web", {method: "POST"}).catch(function() {});
     }
 
     var pendingReminder = null;
@@ -421,7 +421,7 @@
     }
 
     function loadScheduled() {
-      apiFetch("/api/notifications/scheduled").then(function(d) {
+      apiFetch("/api/v1/notifications/scheduled").then(function(d) {
         if (!d) return;
         scheduledNotifications = d.notifications || [];
         renderReminders();
@@ -434,7 +434,7 @@
 
       var existing = scheduledNotifications.find(function(n) { return n.date === date; });
       if (existing) {
-        apiFetch("/api/notifications/schedule/" + existing.id, {method: "DELETE"}).then(function() {
+        apiFetch("/api/v1/notifications/schedule/" + existing.id, {method: "DELETE"}).then(function() {
           scheduledNotifications = scheduledNotifications.filter(function(n) { return n.id !== existing.id; });
           showToast("Reminder removed for " + formatDate(date), "info");
           renderScheduledIcons();
@@ -473,7 +473,7 @@
           registerDeviceToken().then(function() {
             var title = "🏃 PaceClimate Reminder";
             var body = label + " day for a run! " + temp + "°C, " + desc;
-            apiFetch("/api/notifications/schedule?date=" + date + "&time=" + encodeURIComponent(time) + "&title=" + encodeURIComponent(title) + "&body=" + encodeURIComponent(body), {method: "POST"}).then(function(d) {
+            apiFetch("/api/v1/notifications/schedule?date=" + date + "&time=" + encodeURIComponent(time) + "&title=" + encodeURIComponent(title) + "&body=" + encodeURIComponent(body), {method: "POST"}).then(function(d) {
               if (!d) return;
               scheduledNotifications.push({id: d.id, date: date, time: time, title: title, body: body});
               showToast("🔔 Reminder set for " + formatDate(date) + " at " + time, "success");
@@ -490,7 +490,7 @@
     document.getElementById("time-picker-cancel").addEventListener("click", function() { closeTimePicker({ target: null, currentTarget: null }); });
     document.getElementById("test-notif-btn").addEventListener("click", function() {
       if (!FCM_ENABLED) { showToast("FCM not configured.", "error"); return; }
-      apiFetch("/api/notifications/test", {method: "POST"}).then(function(d) {
+      apiFetch("/api/v1/notifications/test", {method: "POST"}).then(function(d) {
         if (d && d.ok) showToast("✅ Test notification sent! Check your device.", "success");
         else showToast("❌ FCM send failed — check credentials.", "error");
       }).catch(function() { showToast("❌ Test failed.", "error"); });
@@ -543,7 +543,7 @@
     }
 
     function deleteReminder(id) {
-      apiFetch("/api/notifications/schedule/" + id, {method: "DELETE"}).then(function() {
+      apiFetch("/api/v1/notifications/schedule/" + id, {method: "DELETE"}).then(function() {
         scheduledNotifications = scheduledNotifications.filter(function(n) { return n.id !== id; });
         showToast("Reminder deleted.", "info");
         renderScheduledIcons();
@@ -569,7 +569,7 @@
 
     function onGoogleSignIn(response) {
       var el = document.getElementById("auth-error");
-      fetch("/api/auth/google?credential=" + encodeURIComponent(response.credential), { method: "POST" })
+      fetch("/api/v1/auth/google?credential=" + encodeURIComponent(response.credential), { method: "POST" })
         .then(function(r) { return r.json(); })
         .then(function(data) {
           localStorage.setItem("paceclimate_token", data.token);
@@ -598,7 +598,7 @@
       btn.disabled = true;
       btn.textContent = "Please wait...";
 
-      var endpoint = isLoginMode ? "/api/auth/login" : "/api/auth/register";
+      var endpoint = isLoginMode ? "/api/v1/auth/login" : "/api/v1/auth/register";
       try {
         var resp = await fetch(endpoint + "?email=" + encodeURIComponent(email) + "&password=" + encodeURIComponent(password), { method: "POST" });
         var data = await resp.json();
@@ -629,7 +629,7 @@
     function updateStats(runCount) {
       var bar = document.getElementById("stats-bar");
       var goalText = "";
-      apiFetch("/api/stats").then(function(s) {
+      apiFetch("/api/v1/stats").then(function(s) {
         if (!s) return;
         var parts = [];
         if (s.week_km > 0) parts.push("📊 " + s.week_km + "km/" + s.week_runs + " this week");
@@ -658,7 +658,7 @@
     }
 
     function loadWellness() {
-      apiFetch("/api/wellness").then(function(w) {
+      apiFetch("/api/v1/wellness").then(function(w) {
         if (!w) return;
         var banner = document.getElementById("recovery-banner");
         var colors = { ready: "bg-emerald-900/30 border-emerald-700/40 text-emerald-300", easy_day: "bg-yellow-900/30 border-yellow-700/40 text-yellow-300", rest_day: "bg-red-900/30 border-red-700/40 text-red-300" };
@@ -685,7 +685,7 @@
     });
 
     function loadGoals() {
-      apiFetch("/api/goals").then(function(g) {
+      apiFetch("/api/v1/goals").then(function(g) {
         if (!g) return;
         var sec = document.getElementById("goals-section");
         if (g.weekly_distance_km > 0 || g.weekly_runs > 0) {
@@ -701,7 +701,7 @@
       var form = document.getElementById("goals-edit-form");
       form.classList.toggle("hidden");
       if (!form.classList.contains("hidden")) {
-        apiFetch("/api/goals").then(function(g) {
+        apiFetch("/api/v1/goals").then(function(g) {
           if (!g) return;
           document.getElementById("goal-distance").value = g.weekly_distance_km || "";
           document.getElementById("goal-runs").value = g.weekly_runs || "";
@@ -712,7 +712,7 @@
     document.getElementById("goal-save").addEventListener("click", function() {
       var d = document.getElementById("goal-distance").value || 0;
       var r = document.getElementById("goal-runs").value || 0;
-      apiFetch("/api/goals?weekly_distance_km=" + d + "&weekly_runs=" + r, { method: "PUT" }).then(function() {
+      apiFetch("/api/v1/goals?weekly_distance_km=" + d + "&weekly_runs=" + r, { method: "PUT" }).then(function() {
         document.getElementById("goals-edit-form").classList.add("hidden");
         loadGoals();
         showToast("Goals saved!", "success");
@@ -764,7 +764,7 @@
       }
 
       try {
-        var url = "/api/runs?date=" + date + "&distance_km=" + distance + "&duration_min=" + duration + "&rating=" + rating + "&lat=" + currentLat + "&lon=" + currentLon;
+        var url = "/api/v1/runs?date=" + date + "&distance_km=" + distance + "&duration_min=" + duration + "&rating=" + rating + "&lat=" + currentLat + "&lon=" + currentLon;
         if (avgHr) url += "&avg_hr=" + avgHr;
         if (maxHr) url += "&max_hr=" + maxHr;
         if (elevation) url += "&elevation_gain=" + elevation;
@@ -800,7 +800,7 @@
     });
 
     function rateRun(runId, val) {
-      var url = "/api/runs/" + runId + "/rate?rating=" + val;
+      var url = "/api/v1/runs/" + runId + "/rate?rating=" + val;
       var toughEl = document.getElementById("hist-tough-" + runId);
       var toughReasons = null;
       if (toughEl && !toughEl.classList.contains("hidden")) {
@@ -821,7 +821,7 @@
     async function loadHistory() {
       var list = document.getElementById("history-list");
       try {
-        var data = await apiFetch("/api/runs");
+        var data = await apiFetch("/api/v1/runs");
         if (!data || data.runs.length === 0) { list.innerHTML = "<div class='text-center py-6 text-gray-500'>No runs logged yet.</div>"; return; }
         list.innerHTML = data.runs.map(function(r) {
           var emojis = ["😞","😕","😐","🙂","😊"];
@@ -900,7 +900,7 @@
       thinking.innerHTML = '<div class="rounded-xl px-4 py-2.5 text-sm bg-gray-800/80 text-gray-400 italic"><span class="inline-block w-2 h-2 bg-emerald-500 rounded-full animate-pulse mr-1"></span> Thinking...</div>';
       document.getElementById("chat-messages").appendChild(thinking);
       try {
-        var data = await apiFetch("/api/chat?q=" + encodeURIComponent(q) + "&lat=" + currentLat + "&lon=" + currentLon);
+        var data = await apiFetch("/api/v1/chat?q=" + encodeURIComponent(q) + "&lat=" + currentLat + "&lon=" + currentLon);
         document.getElementById("chat-thinking").remove();
         addChatMessage(data && data.answer ? data.answer : "No answer.");
       } catch {
@@ -1038,7 +1038,7 @@
       loading.classList.remove("hidden");
       container.classList.add("hidden");
       try {
-        var url = "/api/forecast?lat=" + currentLat + "&lon=" + currentLon + "&time_pref=" + currentPref;
+        var url = "/api/v1/forecast?lat=" + currentLat + "&lon=" + currentLon + "&time_pref=" + currentPref;
         var planDist = document.getElementById("plan-dist").value;
         var planDur = document.getElementById("plan-dur").value;
         if (planDist) url += "&planned_distance=" + planDist;
@@ -1059,7 +1059,7 @@
 
     async function loadAverages() {
       try {
-        var data = await apiFetch("/api/averages");
+        var data = await apiFetch("/api/v1/averages");
         if (!data) return;
         document.getElementById("plan-dist").placeholder = data.distance_km + " km";
         document.getElementById("plan-dur").placeholder = data.duration_min + " min";
