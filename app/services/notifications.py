@@ -3,6 +3,7 @@ import json
 import asyncio
 import tempfile
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import firebase_admin
 from firebase_admin import credentials, messaging
@@ -10,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..models import DeviceToken, ScheduledNotification, RunLog, UserGoal
 from ..core.database import SessionLocal
+from ..core.config import TIMEZONE
 
 
 def init_firebase():
@@ -157,10 +159,11 @@ def send_push(user_id: int, title: str, body: str):
 
 
 async def notification_checker_loop():
+    tz = ZoneInfo(TIMEZONE)
     while True:
         try:
             db = SessionLocal()
-            now = datetime.now()
+            now = datetime.now(tz)
             today = now.strftime("%Y-%m-%d")
             current_time = now.strftime("%H:%M")
             due = db.query(ScheduledNotification).filter(

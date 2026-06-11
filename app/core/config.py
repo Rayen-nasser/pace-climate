@@ -13,6 +13,7 @@ FCM_CREDENTIALS_PATH = os.environ.get("FCM_CREDENTIALS_PATH", "")
 FCM_CREDENTIALS_JSON = os.environ.get("FCM_CREDENTIALS_JSON", "")
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:////data/paceclimate.db")
 CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*")
+TIMEZONE = os.environ.get("TIMEZONE", "Africa/Tunis")
 
 DEFAULT_LAT = 34.425
 DEFAULT_LON = 8.784
