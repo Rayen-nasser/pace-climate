@@ -387,12 +387,14 @@
       if (!FCM_ENABLED || fcmMessaging) return;
       try {
         if (!firebase.apps.length) firebase.initializeApp(FCM_CONFIG);
-        fcmMessaging = firebase.messaging();
-        fcmMessaging.onMessage(function(payload) {
-          var title = payload.notification.title || "PaceClimate";
-          var body = payload.notification.body || "";
-          showToast("🔔 " + body, "info");
-        });
+        navigator.serviceWorker.register("/firebase-messaging-sw.js").then(function() {
+          fcmMessaging = firebase.messaging();
+          fcmMessaging.onMessage(function(payload) {
+            var title = payload.notification.title || "PaceClimate";
+            var body = payload.notification.body || "";
+            showToast("🔔 " + body, "info");
+          });
+        }).catch(function(e) { console.log("SW registration failed:", e.message); });
       } catch(e) { console.log("FCM init skipped:", e.message); }
     }
 
