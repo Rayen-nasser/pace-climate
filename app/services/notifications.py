@@ -14,18 +14,22 @@ from ..core.database import SessionLocal
 
 def init_firebase():
     cred_path = os.environ.get("FCM_CREDENTIALS_PATH")
-    if cred_path and os.path.exists(cred_path):
-        try:
-            cred = credentials.Certificate(cred_path)
-            firebase_admin.initialize_app(cred)
-            return True
-        except Exception as e:
-            print(f"FCM init from file failed: {e}")
+    if cred_path:
+        if os.path.exists(cred_path):
+            try:
+                cred = credentials.Certificate(cred_path)
+                firebase_admin.initialize_app(cred)
+                print("FCM initialized from credentials file")
+                return True
+            except Exception as e:
+                print(f"FCM init from file failed: {e}")
+        else:
+            print(f"FCM_CREDENTIALS_PATH set but file not found: {cred_path}")
 
     cred_json = os.environ.get("FCM_CREDENTIALS_JSON")
     if cred_json:
+        print(f"FCM_CREDENTIALS_JSON found, length={len(cred_json)}, first 50 chars: {cred_json[:50]}...")
         try:
-            # Normalize: strip whitespace/newlines in case Render wraps multiline input
             cred_json = cred_json.strip().replace("\n", "").replace("\r", "")
             parsed = json.loads(cred_json)
             tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
@@ -33,12 +37,14 @@ def init_firebase():
             tmp.flush()
             cred = credentials.Certificate(tmp.name)
             firebase_admin.initialize_app(cred)
-            print(f"FCM initialized from env var")
+            print("FCM initialized from env var")
             return True
         except json.JSONDecodeError as e:
             print(f"FCM env var JSON parse error: {e}")
         except Exception as e:
             print(f"FCM init from env var failed: {e}")
+    else:
+        print("FCM_CREDENTIALS_JSON env var is empty or not set")
 
     print("WARNING: FCM_CREDENTIALS_PATH/FCM_CREDENTIALS_JSON not configured — notifications disabled")
     return False
