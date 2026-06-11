@@ -25,14 +25,18 @@ def init_firebase():
     cred_json = os.environ.get("FCM_CREDENTIALS_JSON")
     if cred_json:
         try:
+            # Normalize: strip whitespace/newlines in case Render wraps multiline input
+            cred_json = cred_json.strip().replace("\n", "").replace("\r", "")
             parsed = json.loads(cred_json)
             tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
             json.dump(parsed, tmp)
             tmp.flush()
             cred = credentials.Certificate(tmp.name)
             firebase_admin.initialize_app(cred)
-            print(f"FCM initialized from env var (temp: {tmp.name})")
+            print(f"FCM initialized from env var")
             return True
+        except json.JSONDecodeError as e:
+            print(f"FCM env var JSON parse error: {e}")
         except Exception as e:
             print(f"FCM init from env var failed: {e}")
 

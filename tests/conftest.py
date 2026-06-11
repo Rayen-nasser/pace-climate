@@ -9,6 +9,7 @@ os.environ["JWT_SECRET_KEY"] = "test-secret-key"
 os.environ["GROQ_API_KEY"] = "test-groq-key"
 os.environ["FCM_API_KEY"] = ""
 os.environ["FCM_APP_ID"] = ""
+os.environ["DATABASE_URL"] = "sqlite:///test_paceclimate.db"
 
 from app.core.database import Base, engine, SessionLocal, init_db
 from app.main import app
