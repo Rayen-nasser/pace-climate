@@ -1,5 +1,7 @@
 import os
+import json
 import asyncio
+import tempfile
 from datetime import datetime, timedelta
 
 import firebase_admin
@@ -12,16 +14,30 @@ from ..core.database import SessionLocal
 
 def init_firebase():
     cred_path = os.environ.get("FCM_CREDENTIALS_PATH")
-    if not cred_path or not os.path.exists(cred_path):
-        print("WARNING: FCM_CREDENTIALS_PATH not found — notifications disabled")
-        return False
-    try:
-        cred = credentials.Certificate(cred_path)
-        firebase_admin.initialize_app(cred)
-        return True
-    except Exception as e:
-        print(f"FCM init failed: {e}")
-        return False
+    if cred_path and os.path.exists(cred_path):
+        try:
+            cred = credentials.Certificate(cred_path)
+            firebase_admin.initialize_app(cred)
+            return True
+        except Exception as e:
+            print(f"FCM init from file failed: {e}")
+
+    cred_json = os.environ.get("FCM_CREDENTIALS_JSON")
+    if cred_json:
+        try:
+            parsed = json.loads(cred_json)
+            tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
+            json.dump(parsed, tmp)
+            tmp.flush()
+            cred = credentials.Certificate(tmp.name)
+            firebase_admin.initialize_app(cred)
+            print(f"FCM initialized from env var (temp: {tmp.name})")
+            return True
+        except Exception as e:
+            print(f"FCM init from env var failed: {e}")
+
+    print("WARNING: FCM_CREDENTIALS_PATH/FCM_CREDENTIALS_JSON not configured — notifications disabled")
+    return False
 
 
 def build_rich_body(notif, db):

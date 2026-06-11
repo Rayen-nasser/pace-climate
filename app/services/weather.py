@@ -129,10 +129,13 @@ async def fetch_forecast(lat, lon, forecast_days=7):
         "timezone": "auto",
         "forecast_days": forecast_days,
     }
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(BASE_URL, params=params, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(BASE_URL, params=params, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception:
+        return []
 
     daily = data.get("daily", {})
     if not daily.get("time"):

@@ -4,7 +4,7 @@
 - **Backend**: Python + FastAPI (v1.0.0)
 - **Frontend**: HTML + Tailwind CSS (served via Jinja2)
 - **Weather Data**: Open-Meteo + Open-Meteo Air Quality (free, no API key)
-- **Database**: SQLite + SQLAlchemy (PostgreSQL before deploy)
+- **Database**: SQLite + SQLAlchemy (PostgreSQL-ready via connection string swap)
 - **ML**: scikit-learn (Random Forest Regressor, 37 features)
 - **Push**: Firebase Cloud Messaging (FCM)
 - **AI Coach**: Groq API (Llama 3.1 8B)
@@ -15,36 +15,44 @@
 PaceClimate/
 ├── app/
 │   ├── __init__.py
-│   ├── main.py              # App factory, middleware, startup, web routes
-│   ├── config.py             # Environment variables + defaults
-│   ├── database.py           # SQLAlchemy engine + session
-│   ├── models.py             # DB schema (User, RunLog, MlModel, etc.)
-│   ├── schemas.py            # Pydantic models for API I/O + docs
-│   ├── auth.py               # JWT helpers, password hashing, Google verify
-│   ├── weather.py            # Open-Meteo API client (weather + AQI)
-│   ├── scoring.py            # Rule-based + ML scoring logic
-│   ├── history.py            # Run log CRUD + training load + recovery
-│   ├── trainer.py            # Per-user ML model (37 features)
-│   ├── chat.py               # Groq-powered Q&A engine
-│   ├── notifications.py      # FCM init, push send, background checker
-│   ├── api/                  # Versioned API routers
+│   ├── main.py              # App factory, CORS, rate limiter, lifespan, web routes
+│   ├── core/
 │   │   ├── __init__.py
-│   │   ├── auth.py           # POST /auth/register, /auth/login, /auth/google, GET /me
-│   │   ├── runs.py           # POST/GET /runs, PATCH /runs/{id}/rate
-│   │   ├── forecast.py       # GET /forecast (7 days, ML + rules)
-│   │   ├── goals.py          # PUT/GET /goals
-│   │   ├── wellness.py       # GET /wellness, GET /stats
-│   │   ├── notifications.py  # register, schedule, list, delete, test
-│   │   ├── chat.py           # GET /chat (AI coach)
-│   │   └── averages.py       # GET /averages
-│   ├── static/               # Static assets (SW, icons)
+│   │   ├── config.py        # Environment variables + defaults
+│   │   ├── database.py      # SQLAlchemy engine + session
+│   │   └── limiter.py       # Shared slowapi rate limiter instance
+│   ├── models/
+│   │   ├── __init__.py      # DB schema (User, RunLog, MlModel, UserGoal, DeviceToken, ScheduledNotification)
+│   │   └── ...
+│   ├── services/
+│   │   ├── auth.py          # JWT helpers, password hashing, Google verify
+│   │   ├── weather.py       # Open-Meteo API client (weather + AQI)
+│   │   ├── scoring.py       # Rule-based + blend with ML scoring
+│   │   ├── run_history.py   # Run log CRUD + training load + recovery
+│   │   ├── trainer.py       # Per-user ML model (37 features)
+│   │   ├── chat.py          # Groq-powered Q&A engine
+│   │   └── notifications.py # FCM init, push send, background checker
+│   ├── api/
+│   │   └── v1/
+│   │       ├── auth.py      # POST /auth/register, /auth/login, /auth/google, GET /me
+│   │       ├── runs.py      # POST/GET /runs, PATCH /runs/{id}/rate
+│   │       ├── forecast.py  # GET /forecast (rate-limited: 60/min)
+│   │       ├── goals.py     # PUT/GET /goals
+│   │       ├── wellness.py  # GET /wellness, GET /stats
+│   │       ├── notifications.py  # register, schedule, list, delete, test
+│   │       ├── chat.py      # GET /chat (AI coach)
+│   │       └── averages.py  # GET /averages
+│   ├── static/              # Static assets (SW, icons)
 │   └── templates/
-│       └── index.html        # Single-page dashboard
+│       └── index.html       # Single-page dashboard
 ├── tests/
-│   ├── conftest.py           # Fixtures (test client, auth, DB)
-│   └── test_api.py           # API endpoint tests + OpenAPI spec validation
-├── data/                     # DB + model files (gitignored)
+│   ├── conftest.py          # Fixtures (test client, auth, DB)
+│   └── test_api.py          # 26 API endpoint tests + OpenAPI spec validation
+├── data/                    # DB + model files (gitignored)
 ├── ARCHITECTURE.md
+├── DEPLOY.md
+├── Dockerfile
+├── .dockerignore
 ├── requirements.txt
 └── ROADMAP.md
 ```
@@ -133,14 +141,19 @@ All API endpoints are prefixed with `/api/v1`. Auto-documented at `/docs` (Swagg
 
 ### ML Training
 - Trains after 20 runs, retrains every 5 runs
-- Model stored as pickle blob in DB
+- Model stored as pickle blob in DB (future: filesystem/S3)
 - Score = 30% rule-based + 70% ML prediction
 
+### Rate Limiting
+- `/api/v1/forecast` limited to 60 requests/minute (protects Open-Meteo quota)
+- Implemented via `slowapi` with shared limiter instance (`app/core/limiter.py`)
+- IP-based key function — behind Koyeb's proxy, all requests appear as proxy IP (global limit)
+
 ### Deployment Checklist
-- [ ] PostgreSQL instead of SQLite
-- [ ] Alembic migrations
-- [ ] CORS locked to domain
-- [ ] Rate limiting on `/api/v1/forecast` (60/min Open-Meteo limit)
-- [ ] HTTPS via reverse proxy
-- [ ] Model storage on filesystem/S3
-- [ ] Dockerfile
+- [ ] PostgreSQL instead of SQLite *(future: when >100 users)*
+- [ ] Alembic migrations *(future: only needed with PostgreSQL)*
+- [x] CORS locked to domain *(env var `CORS_ORIGINS`, defaults to `*`)*
+- [x] Rate limiting on `/api/v1/forecast` *(60/min via slowapi)*
+- [x] HTTPS via reverse proxy *(uvicorn `--proxy-headers --forwarded-allow-ips="*"`)*
+- [ ] Model storage on filesystem/S3 *(future: when >50 users)*
+- [x] Dockerfile *(multi-stage, production-ready)*

@@ -1,23 +1,45 @@
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
-from .core.config import DEFAULT_LAT, DEFAULT_LON, DEFAULT_CITY, GOOGLE_CLIENT_ID, FCM_API_KEY, FCM_APP_ID, FCM_SENDER_ID
+from .core.config import DEFAULT_LAT, DEFAULT_LON, DEFAULT_CITY, GOOGLE_CLIENT_ID, FCM_API_KEY, FCM_APP_ID, FCM_SENDER_ID, CORS_ORIGINS
+from .core.limiter import limiter
 from .core.database import init_db
 from .services.scoring import TIME_PREFS
 from .services.notifications import init_firebase, notification_checker_loop
 from .api.v1 import auth, runs, forecast, goals, wellness, notifications as notif_api, chat, averages
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    fcm_ok = init_firebase()
+    if fcm_ok:
+        import asyncio
+        asyncio.create_task(notification_checker_loop())
+        print("FCM notification loop started")
+    yield
+
+
+cors_origins = [o.strip() for o in CORS_ORIGINS.split(",") if o.strip()]
+
 app = FastAPI(title="PaceClimate", version="1.0.0",
               description="Smart running weather forecasts with personalized ML scoring, push notifications, and AI coaching.",
-              docs_url="/docs", redoc_url="/redoc")
+              docs_url="/docs", redoc_url="/redoc",
+              lifespan=lifespan)
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -39,14 +61,9 @@ app.include_router(chat.router, prefix=API_PREFIX)
 app.include_router(averages.router, prefix=API_PREFIX)
 
 
-@app.on_event("startup")
-def startup():
-    init_db()
-    fcm_ok = init_firebase()
-    if fcm_ok:
-        import asyncio
-        asyncio.create_task(notification_checker_loop())
-        print("FCM notification loop started")
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 
 
 @app.get("/", response_class=HTMLResponse)

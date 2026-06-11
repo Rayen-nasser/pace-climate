@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from ...core.config import DEFAULT_LAT, DEFAULT_LON
+from ...core.limiter import limiter
 from ...core.database import get_db
 from ...services.auth import get_current_user
 from ...models import User
@@ -14,7 +15,9 @@ router = APIRouter(tags=["forecast"])
 
 
 @router.get("/forecast")
+@limiter.limit("60/minute")
 async def forecast(
+    request: Request,
     lat: float = DEFAULT_LAT,
     lon: float = DEFAULT_LON,
     time_pref: str = "evening",
@@ -28,11 +31,15 @@ async def forecast(
     scored = []
     for day in raw_days:
         result = score_day(day, time_pref)
-        ml_score = predict_score(db, user.id, day, planned_distance, planned_duration)
+        try:
+            ml_score = predict_score(db, user.id, day, planned_distance, planned_duration)
+        except Exception:
+            ml_score = None
         if ml_score is not None:
             result["score"] = round((result["score"] * 0.3 + ml_score * 0.7))
             s = result["score"]
             result["label"] = "Great" if s >= 80 else "Good" if s >= 60 else "Okay" if s >= 40 else "Skip"
+            result["ml_score"] = round(ml_score)
         scored.append({**day, **result})
     scored.sort(key=lambda d: d["score"], reverse=True)
 

@@ -965,6 +965,10 @@
     function renderDays(days) {
       var container = document.getElementById("days-container");
       container.innerHTML = "";
+      if (!days || days.length === 0) {
+        container.innerHTML = '<div class="text-center py-12 animate-fade-in"><p class="text-gray-400 text-sm mb-3">⚠️ No forecast data available</p><p class="text-gray-600 text-xs">The weather service could not be reached. Check your internet connection and make sure <code class="text-gray-500 bg-gray-900 px-1.5 py-0.5 rounded">api.open-meteo.com</code> is accessible.</p><button onclick="fetchForecast()" class="mt-5 px-5 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-xl text-sm transition">Retry</button></div>';
+        return;
+      }
       days.forEach(function(day, idx) {
         var card = document.createElement("div");
         card.className = "rounded-2xl border p-5 transition-all duration-300 hover:scale-[1.01] hover:shadow-xl bg-gradient-to-br " + scoreColor(day.score) + " animate-fade-in-up delay-" + Math.min(idx + 1, 7);
