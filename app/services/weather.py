@@ -83,42 +83,45 @@ async def fetch_air_quality(lat, lon, start_date, end_date):
 
 
 async def fetch_historical_weather(lat, lon, date_str):
-    async def _weather():
-        params = {
-            "latitude": lat,
-            "longitude": lon,
-            "start_date": date_str,
-            "end_date": date_str,
-            "daily": "temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,precipitation_probability_max,weather_code,wind_speed_10m_max,uv_index_max,dew_point_2m_max",
-            "timezone": "auto",
+    try:
+        async def _weather():
+            params = {
+                "latitude": lat,
+                "longitude": lon,
+                "start_date": date_str,
+                "end_date": date_str,
+                "daily": "temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,precipitation_probability_max,weather_code,wind_speed_10m_max,uv_index_max,dew_point_2m_max",
+                "timezone": "auto",
+            }
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(ARCHIVE_URL, params=params, timeout=10)
+                if resp.status_code != 200:
+                    return {}
+                return resp.json()
+
+        weather_task = _weather()
+        aqi_task = fetch_air_quality(lat, lon, date_str, date_str)
+        data, aqi_data = await asyncio.gather(weather_task, aqi_task)
+
+        daily = data.get("daily", {}) if data else {}
+        if not daily.get("time"):
+            return {}
+
+        return {
+            "temp_max": daily["temperature_2m_max"][0],
+            "temp_min": daily["temperature_2m_min"][0],
+            "apparent_max": daily.get("apparent_temperature_max", [daily["temperature_2m_max"][0]])[0],
+            "apparent_min": daily.get("apparent_temperature_min", [daily["temperature_2m_min"][0]])[0],
+            "precip_sum": daily["precipitation_sum"][0],
+            "precip_prob": daily.get("precipitation_probability_max", [0])[0] or 0,
+            "wind_max": daily["wind_speed_10m_max"][0],
+            "weather_code": daily["weather_code"][0],
+            "uv_index": daily.get("uv_index_max", [0])[0] or 0,
+            "dew_point": daily.get("dew_point_2m_max", [0])[0] or 0,
+            "aqi": aqi_data.get(date_str, 0) or 0,
         }
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(ARCHIVE_URL, params=params, timeout=10)
-            if resp.status_code != 200:
-                return {}
-            return resp.json()
-
-    weather_task = _weather()
-    aqi_task = fetch_air_quality(lat, lon, date_str, date_str)
-    data, aqi_data = await asyncio.gather(weather_task, aqi_task)
-
-    daily = data.get("daily", {}) if data else {}
-    if not daily.get("time"):
+    except Exception:
         return {}
-
-    return {
-        "temp_max": daily["temperature_2m_max"][0],
-        "temp_min": daily["temperature_2m_min"][0],
-        "apparent_max": daily.get("apparent_temperature_max", [daily["temperature_2m_max"][0]])[0],
-        "apparent_min": daily.get("apparent_temperature_min", [daily["temperature_2m_min"][0]])[0],
-        "precip_sum": daily["precipitation_sum"][0],
-        "precip_prob": daily.get("precipitation_probability_max", [0])[0] or 0,
-        "wind_max": daily["wind_speed_10m_max"][0],
-        "weather_code": daily["weather_code"][0],
-        "uv_index": daily.get("uv_index_max", [0])[0] or 0,
-        "dew_point": daily.get("dew_point_2m_max", [0])[0] or 0,
-        "aqi": aqi_data.get(date_str, 0) or 0,
-    }
 
 
 async def fetch_forecast(lat, lon, forecast_days=7):
