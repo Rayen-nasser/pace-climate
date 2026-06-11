@@ -1,5 +1,4 @@
-fastapi
-uvicorn
+fastapi[standard]
 httpx
 jinja2
 sqlalchemy
