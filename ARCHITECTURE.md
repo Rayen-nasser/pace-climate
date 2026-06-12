@@ -47,7 +47,7 @@ PaceClimate/
 │       └── index.html       # Single-page dashboard
 ├── tests/
 │   ├── conftest.py          # Fixtures (test client, auth, DB)
-│   └── test_api.py          # 26 API endpoint tests + OpenAPI spec validation
+│   └── test_api.py          # 28 API endpoint tests + OpenAPI spec validation
 ├── data/                    # DB + model files (gitignored)
 ├── ARCHITECTURE.md
 ├── DEPLOY.md
@@ -127,7 +127,8 @@ All API endpoints are prefixed with `/api/v1`. Auto-documented at `/docs` (Swagg
 
 ### Authentication
 - JWT tokens with 30-day expiry, stored in localStorage
-- `Depends(get_current_user)` on all protected endpoints
+- `Depends(get_current_user)` on write endpoints (runs, goals, notifications)
+- `Depends(get_current_user_optional)` on read endpoints (forecast, chat) — anonymous users get rule-based scores
 - Google Sign-In via GSI declarative mode (blocked: COOP issue)
 
 ### Database
@@ -147,7 +148,7 @@ All API endpoints are prefixed with `/api/v1`. Auto-documented at `/docs` (Swagg
 ### Rate Limiting
 - `/api/v1/forecast` limited to 60 requests/minute (protects Open-Meteo quota)
 - Implemented via `slowapi` with shared limiter instance (`app/core/limiter.py`)
-- IP-based key function — behind Koyeb's proxy, all requests appear as proxy IP (global limit)
+- IP-based key function
 
 ### Deployment Checklist
 - [ ] PostgreSQL instead of SQLite *(future: when >100 users)*
@@ -155,5 +156,6 @@ All API endpoints are prefixed with `/api/v1`. Auto-documented at `/docs` (Swagg
 - [x] CORS locked to domain *(env var `CORS_ORIGINS`, defaults to `*`)*
 - [x] Rate limiting on `/api/v1/forecast` *(60/min via slowapi)*
 - [x] HTTPS via reverse proxy *(uvicorn `--proxy-headers --forwarded-allow-ips="*"`)*
+- [x] Anonymous read-only access on forecast/chat *(get_current_user_optional)*
 - [ ] Model storage on filesystem/S3 *(future: when >50 users)*
 - [x] Dockerfile *(multi-stage, production-ready)*

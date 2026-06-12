@@ -21,13 +21,13 @@
 
 | Variable | Value |
 |---|---|
-| `GROQ_API_KEY` | `gsk_...` (from .env) |
-| `JWT_SECRET_KEY` | `HkN3...` (from .env) |
-| `GOOGLE_CLIENT_ID` | `672122558178...` (from .env, optional) |
-| `FCM_API_KEY` | `AIzaSy...` (from .env) |
-| `FCM_APP_ID` | `1:266848638326...` (from .env) |
-| `FCM_SENDER_ID` | `266848638326` |
-| `FCM_CREDENTIALS_JSON` | (entire Firebase JSON as a single line) |
+| `GROQ_API_KEY` | `<your-groq-api-key>` |
+| `JWT_SECRET_KEY` | `<your-jwt-secret>` |
+| `GOOGLE_CLIENT_ID` | `<your-google-client-id>` (optional) |
+| `FCM_API_KEY` | `<your-fcm-api-key>` (optional) |
+| `FCM_APP_ID` | `<your-fcm-app-id>` (optional) |
+| `FCM_SENDER_ID` | `<your-fcm-sender-id>` (optional) |
+| `FCM_CREDENTIALS_JSON` | (entire Firebase service account JSON as a single line, optional) |
 | `CORS_ORIGINS` | `https://pace-climate.onrender.com` |
 
 10. Advanced → **Disks** → **Add Disk**:
@@ -73,16 +73,23 @@ Render auto-rebuilds and redeploys on push to `master`.
 ## Environment Variables Reference
 
 | Variable | Required | Default | Description |
-|---|---|---|---|
+|---|---|---|---|---|
 | `GROQ_API_KEY` | Yes | — | Groq API key for AI coach chat |
-| `JWT_SECRET_KEY` | Yes | — | Secret key for JWT token signing |
+| `JWT_SECRET_KEY` | Yes | — | Secret key for JWT token signing (generate with `openssl rand -hex 32`) |
 | `CORS_ORIGINS` | Yes | `*` | Comma-separated allowed CORS origins |
 | `DATABASE_URL` | No | `sqlite:////data/paceclimate.db` | Database connection string (uses persistent disk) |
+| `TIMEZONE` | No | `Africa/Tunis` | Timezone for notification scheduling |
 | `FCM_API_KEY` | No | — | Firebase Cloud Messaging web API key |
 | `FCM_APP_ID` | No | — | Firebase app ID |
-| `FCM_SENDER_ID` | No | `266848638326` | Firebase sender ID |
-| `FCM_CREDENTIALS_JSON` | No | — | Firebase service account JSON (paste entire JSON) |
+| `FCM_SENDER_ID` | No | — | Firebase sender ID |
+| `FCM_CREDENTIALS_JSON` | No | — | Firebase service account JSON (paste entire JSON as single line) |
 | `GOOGLE_CLIENT_ID` | No | — | Google OAuth client ID (optional) |
+
+For local development, add a `.env` file or set DATABASE_URL to a local path:
+
+```bash
+DATABASE_URL=sqlite:///./paceclimate.db uvicorn app.main:app --reload
+```
 
 ---
 

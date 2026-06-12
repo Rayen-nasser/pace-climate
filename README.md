@@ -1,19 +1,19 @@
 # PaceClimate
 
-Smart running weather forecasts with personalized ML scoring, push notifications, and AI coaching.
+Smart running weather forecasts with personalized ML scoring, push notifications, and AI coaching. **No account required for basic forecast access.**
 
-Choose a time and location, get a 7-day ranked forecast of the best running windows based on weather conditions, your personal running history, and a machine learning model that learns your preferences over time.
+Choose a time and location, get a 7-day ranked forecast of the best running windows based on weather conditions. Create an account to unlock personalized ML scoring, run logging, push notifications, and AI coaching powered by your own training history.
 
 ## Features
 
-- **7-day forecast** — temperature, wind, precipitation, AQI, UV index, dew point, all ranked by a run suitability score
-- **Personalized ML scoring** — blends rule-based weather scoring (30%) with a RandomForest model (70%) trained on 37 features from your own run history + session feedback + environmental data
-- **Session feedback** — log perceived effort, pre-run energy, sleep hours, muscle soreness, run type, and tough reasons after each run
-- **Push notifications** — schedule daily reminders for your preferred run time, with rich body (recovery status, goal progress, weekly stats)
-- **AI coach Q&A** — ask anything about training, recovery, weather, or your stats (powered by Groq / Llama 3.1 8B)
+- **7-day forecast** — temperature, wind, precipitation, AQI, UV index, dew point, all ranked by a run suitability score (anonymous: rule-based only)
+- **Personalized ML scoring** — blends rule-based weather scoring (30%) with a RandomForest model (70%) trained on 37 features from your own run history
+- **Session feedback** — log perceived effort, pre-run energy, sleep hours, muscle soreness, run type, and tough reasons
+- **Push notifications** — schedule daily reminders with rich body (recovery status, goal progress, weekly stats)
+- **AI coach Q&A** — ask about training, recovery, weather, or stats (powered by Groq / Llama 3.1 8B)
 - **Athlete services** — wellness/recovery score, training load tracking, weekly goal setting
-- **Auth** — email/password registration + Google Sign-In
-- **Mobile-ready API** — all endpoints at `/api/v1/` for Flutter/React Native consumption
+- **Auth** — email/password + Google Sign-In
+- **Anonymous access** — browse 7-day forecast without signing up (ML features require an account)
 
 ## Tech Stack
 
@@ -49,15 +49,13 @@ Open http://localhost:8000
 
 ## Deploy
 
-One-click deploy on SnapDeploy (free, no credit card):
+One-click deploy on Render (free tier, no credit card — see [DEPLOY.md](./DEPLOY.md) for full instructions):
 
-1. Push to GitHub
-2. Go to https://snapdeploy.dev
-3. New Container -> Deploy from GitHub -> select repo
-4. Set environment variables
-5. Deploy
+```bash
+git push
+```
 
-Full instructions in [DEPLOY.md](./DEPLOY.md).
+Render auto-rebuilds and redeploys on push to `master`.
 
 ## Seed Data
 
