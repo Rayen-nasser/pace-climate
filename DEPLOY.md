@@ -71,9 +71,8 @@ Render auto-rebuilds and redeploys on push to `master`.
 ---
 
 ## Environment Variables Reference
-
 | Variable | Required | Default | Description |
-|---|---|---|---|---|
+|---|---|---|---|
 | `GROQ_API_KEY` | Yes | — | Groq API key for AI coach chat |
 | `JWT_SECRET_KEY` | Yes | — | Secret key for JWT token signing (generate with `openssl rand -hex 32`) |
 | `CORS_ORIGINS` | Yes | `*` | Comma-separated allowed CORS origins |
