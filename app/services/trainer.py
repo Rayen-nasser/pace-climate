@@ -2,8 +2,6 @@ import json
 import pickle
 from datetime import datetime, timezone
 
-import numpy as np
-from sklearn.ensemble import RandomForestRegressor
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -176,6 +174,9 @@ FEATURE_NAMES = [
 
 
 def train_model(db: Session, user_id: int):
+    import numpy as np
+    from sklearn.ensemble import RandomForestRegressor
+
     logs = db.query(RunLog).filter_by(user_id=user_id).order_by(RunLog.date).all()
 
     if len(logs) < MIN_RUNS_FOR_TRAINING:
@@ -226,6 +227,8 @@ def load_model(db: Session, user_id: int):
 
 
 def predict_score(db: Session, user_id: int, day: dict, planned_distance=None, planned_duration=None):
+    import numpy as np
+
     model = load_model(db, user_id)
     if model is None:
         return None

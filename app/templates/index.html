@@ -82,6 +82,20 @@
       </div>
     </div>
 
+    <!-- ANONYMOUS BANNER -->
+    <div id="anonymous-banner" class="hidden animate-slide-down mb-3">
+      <div class="bg-gradient-to-r from-gray-900 to-gray-900/95 rounded-xl border border-gray-700/50 p-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="text-xl">👋</span>
+          <div>
+            <p class="text-sm font-medium text-gray-200">Explore PaceClimate</p>
+            <p class="text-xs text-gray-400">Create an account to log runs, get AI coaching, and unlock personalized features.</p>
+          </div>
+        </div>
+        <button onclick="showLogin()" class="flex-shrink-0 px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 rounded-lg text-xs font-semibold transition-all duration-200">Sign In</button>
+      </div>
+    </div>
+
     <!-- DASHBOARD -->
     <div id="dashboard" class="hidden animate-fade-in">
 
@@ -325,11 +339,16 @@
 
     function apiFetch(url, options) {
       options = options || {};
+      var requireAuth = options.requireAuth !== false;
       var token = getToken();
-      if (!token) { showLogin(); return Promise.reject("no token"); }
-      var headers = Object.assign({}, options.headers || {}, { "Authorization": "Bearer " + token });
+      if (requireAuth && !token) { showLogin(); return Promise.reject("no token"); }
+      var headers = Object.assign({}, options.headers || {});
+      if (token) headers["Authorization"] = "Bearer " + token;
       return fetch(url, Object.assign({}, options, { headers: headers })).then(async function(resp) {
-        if (resp.status === 401) { showLogin(); throw new Error("unauthorized"); }
+        if (resp.status === 401) {
+          if (requireAuth) { showLogin(); throw new Error("unauthorized"); }
+          return null;
+        }
         return resp.json();
       });
     }
@@ -361,22 +380,41 @@
 
     // Init
     (function init() {
+      // Always show dashboard — forecast works without auth
+      document.getElementById("login-screen").classList.add("hidden");
+      document.getElementById("dashboard").classList.remove("hidden");
+      document.getElementById("run-date").value = new Date().toISOString().split("T")[0];
+
       var token = getToken();
       if (token) {
-        apiFetch("/api/v1/me").then(function(u) {
-          showDashboard(u.email);
-          document.getElementById("run-date").value = new Date().toISOString().split("T")[0];
-          autoLocate();
-          loadScheduled();
-          initFCM();
-          if (window.location.search.includes("log=1")) {
-            document.getElementById("log-run-form").classList.remove("hidden");
-            history.replaceState(null, "", "/");
-          }
-        }).catch(function() { showLogin(); });
-        return;
+        fetch("/api/v1/me", { headers: { "Authorization": "Bearer " + token } })
+          .then(function(r) { if (!r.ok) throw new Error("invalid"); return r.json(); })
+          .then(function(u) {
+            document.getElementById("user-email").textContent = u.email;
+            var avatar = document.getElementById("user-avatar");
+            avatar.textContent = u.email.charAt(0).toUpperCase();
+            document.getElementById("anonymous-banner").classList.add("hidden");
+            document.getElementById("log-run-toggle").classList.remove("hidden");
+            document.getElementById("history-toggle").classList.remove("hidden");
+            loadScheduled();
+            initFCM();
+            if (window.location.search.includes("log=1")) {
+              document.getElementById("log-run-form").classList.remove("hidden");
+              history.replaceState(null, "", "/");
+            }
+          })
+          .catch(function() {
+            localStorage.removeItem("paceclimate_token");
+            document.getElementById("anonymous-banner").classList.remove("hidden");
+            document.getElementById("log-run-toggle").classList.add("hidden");
+            document.getElementById("history-toggle").classList.add("hidden");
+          });
+      } else {
+        document.getElementById("anonymous-banner").classList.remove("hidden");
+        document.getElementById("log-run-toggle").classList.add("hidden");
+        document.getElementById("history-toggle").classList.add("hidden");
       }
-      showLogin();
+      autoLocate();
     })();
 
     // FCM Notifications
@@ -630,8 +668,13 @@
     // Stats
     function updateStats(runCount) {
       var bar = document.getElementById("stats-bar");
+      if (!getToken()) {
+        bar.textContent = "🔑 Sign in to track your runs and unlock AI scoring";
+        bar.className = "mt-2 text-xs text-gray-500";
+        return;
+      }
       var goalText = "";
-      apiFetch("/api/v1/stats").then(function(s) {
+      apiFetch("/api/v1/stats", { requireAuth: false }).then(function(s) {
         if (!s) return;
         var parts = [];
         if (s.week_km > 0) parts.push("📊 " + s.week_km + "km/" + s.week_runs + " this week");
@@ -660,7 +703,7 @@
     }
 
     function loadWellness() {
-      apiFetch("/api/v1/wellness").then(function(w) {
+      apiFetch("/api/v1/wellness", { requireAuth: false }).then(function(w) {
         if (!w) return;
         var banner = document.getElementById("recovery-banner");
         var colors = { ready: "bg-emerald-900/30 border-emerald-700/40 text-emerald-300", easy_day: "bg-yellow-900/30 border-yellow-700/40 text-yellow-300", rest_day: "bg-red-900/30 border-red-700/40 text-red-300" };
@@ -687,7 +730,7 @@
     });
 
     function loadGoals() {
-      apiFetch("/api/v1/goals").then(function(g) {
+      apiFetch("/api/v1/goals", { requireAuth: false }).then(function(g) {
         if (!g) return;
         var sec = document.getElementById("goals-section");
         if (g.weekly_distance_km > 0 || g.weekly_runs > 0) {
@@ -902,7 +945,7 @@
       thinking.innerHTML = '<div class="rounded-xl px-4 py-2.5 text-sm bg-gray-800/80 text-gray-400 italic"><span class="inline-block w-2 h-2 bg-emerald-500 rounded-full animate-pulse mr-1"></span> Thinking...</div>';
       document.getElementById("chat-messages").appendChild(thinking);
       try {
-        var data = await apiFetch("/api/v1/chat?q=" + encodeURIComponent(q) + "&lat=" + currentLat + "&lon=" + currentLon);
+        var data = await apiFetch("/api/v1/chat?q=" + encodeURIComponent(q) + "&lat=" + currentLat + "&lon=" + currentLon, { requireAuth: false });
         document.getElementById("chat-thinking").remove();
         addChatMessage(data && data.answer ? data.answer : "No answer.");
       } catch {
@@ -1049,7 +1092,7 @@
         var planDur = document.getElementById("plan-dur").value;
         if (planDist) url += "&planned_distance=" + planDist;
         if (planDur) url += "&planned_duration=" + planDur;
-        var data = await apiFetch(url);
+        var data = await apiFetch(url, { requireAuth: false });
         if (!data) return;
         renderDays(data.days);
         renderScheduledIcons();
@@ -1065,7 +1108,7 @@
 
     async function loadAverages() {
       try {
-        var data = await apiFetch("/api/v1/averages");
+        var data = await apiFetch("/api/v1/averages", { requireAuth: false });
         if (!data) return;
         document.getElementById("plan-dist").placeholder = data.distance_km + " km";
         document.getElementById("plan-dur").placeholder = data.duration_min + " min";

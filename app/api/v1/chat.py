@@ -1,9 +1,10 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from ...core.config import DEFAULT_LAT, DEFAULT_LON
 from ...core.database import get_db
-from ...services.auth import get_current_user
+from ...services.auth import get_current_user_optional
 from ...models import User
 from ...services.weather import fetch_forecast
 from ...services.scoring import score_day
@@ -18,7 +19,7 @@ async def chat(
     q: str = Query(...),
     lat: float = DEFAULT_LAT,
     lon: float = DEFAULT_LON,
-    user: User = Depends(get_current_user),
+    user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
     """Ask the AI coach a question about the forecast, training, or gear."""
@@ -27,6 +28,11 @@ async def chat(
     for day in raw_days:
         result = score_day(day)
         scored.append({**day, **result})
-    run_count = get_run_count(db, user.id)
-    answer = answer_question(q, scored, run_count)
+    if user is not None:
+        run_count = get_run_count(db, user.id)
+        answer = answer_question(q, scored, run_count)
+    else:
+        answer = answer_question(q, scored, 0) + (
+            "\n\nCreate an account for personalized coaching based on your run history."
+        )
     return {"answer": answer}

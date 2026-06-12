@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timedelta, timezone
 
+from typing import Optional
 from fastapi import Depends, HTTPException, Header
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -99,4 +100,25 @@ async def get_current_user(
     user = db.query(User).filter_by(id=int(user_id)).first()
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+
+async def get_current_user_optional(
+    authorization: str = Header(None),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    if not authorization:
+        return None
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return None
+    token = parts[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if user_id is None:
+            return None
+    except JWTError:
+        return None
+    user = db.query(User).filter_by(id=int(user_id)).first()
     return user

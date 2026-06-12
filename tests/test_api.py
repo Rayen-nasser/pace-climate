@@ -96,6 +96,13 @@ class TestForecast:
         resp = client.get("/api/v1/forecast?lat=34.425&lon=8.784&time_pref=morning&planned_distance=10&planned_duration=50", headers=auth_headers)
         assert resp.status_code == 200
 
+    def test_forecast_anonymous(self, client):
+        resp = client.get("/api/v1/forecast?lat=34.425&lon=8.784")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "days" in data
+        assert data["run_count"] == 0
+
 
 class TestGoals:
     def test_set_goals(self, client, auth_headers):
@@ -163,6 +170,13 @@ class TestChat:
         assert resp.status_code == 200
         data = resp.json()
         assert "answer" in data
+
+    def test_chat_anonymous(self, client):
+        resp = client.get("/api/v1/chat?q=How+is+the+weather+this+week%3F")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "answer" in data
+        assert "create an account" in data["answer"].lower()
 
 
 class TestAverages:
