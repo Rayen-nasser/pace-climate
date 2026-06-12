@@ -1,5 +1,7 @@
 # PaceClimate
 
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen?style=for-the-badge)](https://pace-climate.onrender.com/)
+
 Smart running weather forecasts with personalized ML scoring, push notifications, and AI coaching. **No account required for basic forecast access.**
 
 Choose a time and location, get a 7-day ranked forecast of the best running windows based on weather conditions. Create an account to unlock personalized ML scoring, run logging, push notifications, and AI coaching powered by your own training history.
