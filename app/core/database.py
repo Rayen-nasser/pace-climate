@@ -19,9 +19,17 @@ def get_db():
 
 
 def init_db():
-    from alembic.config import Config
-    from alembic import command
-    import os
+    import os, sys
     ini_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "alembic.ini")
-    cfg = Config(ini_path)
-    command.upgrade(cfg, "head")
+    if os.path.exists(ini_path):
+        try:
+            from alembic.config import Config
+            from alembic import command
+            cfg = Config(ini_path)
+            command.upgrade(cfg, "head")
+            print(f"Database migrated (alembic): {DATABASE_URL.split('://')[0]}://...")
+            return
+        except Exception as e:
+            print(f"Alembic migration failed ({e}), falling back to create_all", file=sys.stderr)
+    import app.models
+    Base.metadata.create_all(bind=engine)
