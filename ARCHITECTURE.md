@@ -4,7 +4,7 @@
 - **Backend**: Python + FastAPI (v1.0.0)
 - **Frontend**: HTML + Tailwind CSS (served via Jinja2)
 - **Weather Data**: Open-Meteo + Open-Meteo Air Quality (free, no API key)
-- **Database**: SQLite + SQLAlchemy (PostgreSQL-ready via connection string swap)
+- **Database**: PostgreSQL (Supabase) + SQLAlchemy (SQLite for local dev)
 - **ML**: scikit-learn (Random Forest Regressor, 37 features)
 - **Push**: Firebase Cloud Messaging (FCM)
 - **AI Coach**: Groq API (Llama 3.1 8B)
@@ -45,10 +45,17 @@ PaceClimate/
 │   ├── static/              # Static assets (SW, icons)
 │   └── templates/
 │       └── index.html       # Single-page dashboard
+├── alembic/                 # Alembic migrations directory
+│   ├── env.py               # Points to DATABASE_URL + Base.metadata
+│   ├── script.py.mako       # Migration template
+│   └── versions/            # Migration scripts
+├── alembic.ini              # Alembic configuration
+├── scripts/
+│   └── migrate_to_pg.py     # One-time SQLite → Supabase migration
 ├── tests/
 │   ├── conftest.py          # Fixtures (test client, auth, DB)
 │   └── test_api.py          # 28 API endpoint tests + OpenAPI spec validation
-├── data/                    # DB + model files (gitignored)
+├── data/                    # Local DB + model files (gitignored)
 ├── ARCHITECTURE.md
 ├── DEPLOY.md
 ├── Dockerfile
@@ -132,8 +139,17 @@ All API endpoints are prefixed with `/api/v1`. Auto-documented at `/docs` (Swagg
 - Google Sign-In via GSI declarative mode (blocked: COOP issue)
 
 ### Database
-- SQLite for development, PostgreSQL path via connection string swap
-- Schema changes require DB deletion (no Alembic migrations yet)
+- PostgreSQL on Supabase (free tier, never sleeps) in production
+- SQLite for local development (set `DATABASE_URL` in `.env`)
+- Schema migrations via **Alembic** — run automatically on every startup via `init_db()`
+
+#### Migration workflow
+```bash
+# After editing app/models/__init__.py:
+alembic revision --autogenerate -m "describe change"
+alembic upgrade head              # test locally
+git push                           # Render runs upgrade on deploy
+```
 
 ### Push Notifications
 - Firebase Admin SDK (backend) ↔ FCM JS SDK v10 (frontend)
@@ -151,8 +167,8 @@ All API endpoints are prefixed with `/api/v1`. Auto-documented at `/docs` (Swagg
 - IP-based key function
 
 ### Deployment Checklist
-- [ ] PostgreSQL instead of SQLite *(future: when >100 users)*
-- [ ] Alembic migrations *(future: only needed with PostgreSQL)*
+- [x] PostgreSQL via Supabase *(always-on free tier)*
+- [x] Alembic migrations *(auto-run on each startup)*
 - [x] CORS locked to domain *(env var `CORS_ORIGINS`, defaults to `*`)*
 - [x] Rate limiting on `/api/v1/forecast` *(60/min via slowapi)*
 - [x] HTTPS via reverse proxy *(uvicorn `--proxy-headers --forwarded-allow-ips="*"`)*
