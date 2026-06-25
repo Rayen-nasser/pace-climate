@@ -52,6 +52,7 @@ def login_with_password(db: Session, email: str, password: str):
 
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+ANDROID_CLIENT_ID = os.environ.get("ANDROID_CLIENT_ID", "")
 
 
 def login_with_google(db: Session, credential: str):
